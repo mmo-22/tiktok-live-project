@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Wheel Overlay</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: transparent;
+      font-family: 'Tajawal', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .wheel-wrap {
+      position: relative;
+      width: 500px;
+      height: 500px;
+    }
+    canvas { border-radius: 50%; display: block; }
+    .pointer {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px;
+      color: #f5c542;
+      text-shadow: 0 3px 12px rgba(0,0,0,.8);
+      z-index: 2;
+    }
+
+    .winner-banner {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(6,6,11,0.92);
+      border: 2px solid #f5c542;
+      border-radius: 20px;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      opacity: 0;
+      transition: all .5s;
+      pointer-events: none;
+    }
+    .winner-banner.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .winner-banner img { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #f5c542; }
+    .winner-info .label { font-size: 12px; color: #f5c542; font-weight: 700; }
+    .winner-info .name  { font-size: 22px; color: #fff; font-weight: 800; }
+
+    .brand {
+      position: fixed;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(255,255,255,0.15);
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wheel-wrap">
+    <div class="pointer">▼</div>
+    <canvas id="c" width="500" height="500"></canvas>
+  </div>
+
+  <div class="winner-banner" id="winnerBanner">
+    <img id="winnerPic" src="" alt="" />
+    <div class="winner-info">
+      <div class="label">🏆 الفائز</div>
+      <div class="name" id="winnerName"></div>
+    </div>
+  </div>
+
+  <div class="brand">bthlab.live</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const username = new URLSearchParams(location.search).get('username') || '';
+    const COLORS = ['#0891b2','#0e7490','#06b6d4','#22d3ee','#7c3aed','#6d28d9','#8b5cf6','#a78bfa','#dc2626','#b91c1c','#ef4444','#f87171','#d97706','#b45309','#f59e0b','#fbbf24','#059669','#047857','#10b981','#34d399'];
+
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2, r = cx - 6;
+
+    let entries = [], angle = 0;
+
+    const socket = io({ transports: ['websocket', 'polling'] });
+    socket.on('connect', () => socket.emit('overlay:join', { username }));
+    socket.on('reconnect', () => socket.emit('overlay:join', { username }));
+
+    socket.on('wheel:entries', e => { entries = e; draw(angle); });
+
+    socket.on('wheel:spinning', ({ winner }) => {
+      if (!entries.length) return;
+      hideBanner();
+      const idx = entries.findIndex(e => e.uniqueId === winner.uniqueId);
+      const slice = Math.PI * 2 / entries.length;
+      const winnerMid = idx * slice + slice / 2;
+      const target = angle + Math.PI * 2 * (6 + Math.random() * 2) + (Math.PI * 1.5 - winnerMid - (angle % (Math.PI*2)));
+      animateSpin(target, 5000);
+    });
+
+    socket.on('wheel:result', ({ winner }) => {
+      showBanner(winner);
+    });
+
+    socket.on('wheel:reset', () => { hideBanner(); angle = 0; draw(0); });
+
+    // Ask for current state
+    socket.emit('wheel:get');
+
+    // Draw
+    function draw(a) {
+      ctx.clearRect(0, 0, W, H);
+      if (!entries.length) {
+        ctx.fillStyle = 'rgba(30,30,46,0.6)';
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#64748b'; ctx.font = 'bold 16px Tajawal'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('في انتظار المشاركين...', cx, cy);
+        return;
+      }
+      const slice = Math.PI*2 / entries.length;
+      entries.forEach((e, i) => {
+        const s = a + i*slice, en = s + slice;
+        ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,s,en); ctx.closePath();
+        ctx.fillStyle = COLORS[i % COLORS.length]; ctx.fill();
+        ctx.strokeStyle = '#06060b'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.save(); ctx.translate(cx,cy); ctx.rotate(s + slice/2);
+        ctx.textAlign = 'right'; ctx.fillStyle = '#fff';
+        const fs = entries.length > 20 ? 10 : entries.length > 10 ? 12 : 14;
+        ctx.font = `bold ${fs}px Tajawal`; ctx.fillText(e.nickname.substring(0,14), r-12, 5);
+        ctx.restore();
+      });
+      ctx.beginPath(); ctx.arc(cx,cy,22,0,Math.PI*2);
+      ctx.fillStyle = '#06060b'; ctx.fill();
+      ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 3; ctx.stroke();
+    }
+
+    function animateSpin(target, duration) {
+      const start = performance.now(), startA = angle;
+      function step(now) {
+        const p = Math.min((now-start)/duration, 1);
+        const e = 1 - Math.pow(1-p, 3);
+        angle = startA + (target-startA)*e;
+        draw(angle);
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function showBanner(winner) {
+      document.getElementById('winnerPic').src = winner.profilePicture || '';
+      document.getElementById('winnerName').textContent = winner.nickname;
+      document.getElementById('winnerBanner').classList.add('show');
+    }
+    function hideBanner() {
+      document.getElementById('winnerBanner').classList.remove('show');
+    }
+
+    draw(0);
+  </script>
+</body>
+</html>

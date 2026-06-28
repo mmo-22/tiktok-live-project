@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة التحكم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">🎮 لوحة التحكم</div>
+      <div class="status-badge" id="statusBadge">غير متصل</div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- Connect Panel -->
+    <section class="card connect-card">
+      <h2 class="card-title">🔗 الاتصال بحساب TikTok</h2>
+      <div class="connect-row">
+        <input type="text" id="usernameInput" class="input" placeholder="@اسم_المستخدم" autocomplete="off" />
+        <button class="btn btn-primary" id="connectBtn" onclick="connectTikTok()">اتصال</button>
+        <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectTikTok()" style="display:none">قطع</button>
+      </div>
+      <div class="room-info" id="roomInfo" style="display:none">
+        <span id="viewerCount">👁 0</span>
+        <span id="likeCount">❤️ 0</span>
+        <span id="commentCount">💬 0</span>
+        <span id="giftCount">🎁 0</span>
+        <span id="diamondCount">💎 0</span>
+      </div>
+    </section>
+
+    <!-- Two column layout -->
+    <div class="grid-2">
+
+      <!-- Chat Feed -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">💬 التعليقات</h2>
+          <button class="btn btn-sm" onclick="clearChat()">مسح</button>
+        </div>
+        <div class="chat-feed" id="chatFeed">
+          <div class="empty-state">سيظهر هنا التعليقات بعد الاتصال</div>
+        </div>
+      </section>
+
+      <!-- Wheel Panel -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">🎡 عجلة الحظ</h2>
+          <span class="entries-count" id="entriesCount">0 مشارك</span>
+        </div>
+
+        <div class="wheel-container">
+          <canvas id="wheelCanvas" width="300" height="300"></canvas>
+          <div class="wheel-pointer">▼</div>
+        </div>
+
+        <div class="wheel-winner" id="wheelWinner" style="display:none">
+          <img id="winnerPic" src="" alt="" />
+          <div>
+            <div class="winner-label">🏆 الفائز</div>
+            <div class="winner-name" id="winnerName"></div>
+          </div>
+        </div>
+
+        <div class="wheel-actions">
+          <button class="btn btn-primary" id="spinBtn" onclick="spinWheel()">🎰 أدر العجلة</button>
+          <button class="btn btn-outline" onclick="resetWheel()">🔄 إعادة</button>
+        </div>
+
+        <div class="entries-list" id="entriesList"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/wheel.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
