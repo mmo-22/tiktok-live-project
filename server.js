@@ -39,12 +39,32 @@ let wheelWinner = null;
 function roomOf(u) { return `room:${u}`; }
 
 // ── tik.tools WebSocket Connection ────────────────────────────────────────────
-function connectTikTools(username, onEvent, onStatus) {
+async function connectTikTools(username, onEvent, onStatus) {
   const apiKey = process.env.TIKTOOL_API_KEY;
   if (!apiKey) { onStatus('error', 'TIKTOOL_API_KEY غير موجود — أضفه من صفحة الإعدادات'); return null; }
 
-  const url = `wss://api.tik.tools/tiktok-live?uniqueId=${encodeURIComponent(username)}&apiKey=${encodeURIComponent(apiKey)}`;
-  const ws = new WebSocket(url);
+  // Step 1: Get JWT token
+  let wsUrl;
+  try {
+    const res = await fetch(`https://api.tik.tools/authentication/jwt?apiKey=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ allowed_creators: [username], expire_after: 7200, max_websockets: 1 }),
+    });
+    const data = await res.json();
+    if (data?.data?.token) {
+      wsUrl = `wss://api.tik.tools?uniqueId=${username}&jwtKey=${data.data.token}`;
+      console.log(`[tik.tools] JWT obtained @${username}`);
+    } else {
+      console.log(`[tik.tools] JWT failed, fallback @${username}:`, JSON.stringify(data));
+      wsUrl = `wss://api.tik.tools?uniqueId=${username}&apiKey=${apiKey}`;
+    }
+  } catch (e) {
+    console.log(`[tik.tools] JWT error, fallback @${username}:`, e.message);
+    wsUrl = `wss://api.tik.tools?uniqueId=${username}&apiKey=${apiKey}`;
+  }
+
+  const ws = new WebSocket(wsUrl);
 
   ws.on('open', () => {
     console.log(`[tik.tools] Connected @${username}`);
@@ -176,7 +196,7 @@ function emitStats(username, socket) {
 // ── Socket.IO ──────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
 
-  socket.on('tiktok:connect', ({ username }) => {
+  socket.on('tiktok:connect', async ({ username }) => {
     if (!username) return;
     const u = username.replace('@', '').trim().toLowerCase();
 
@@ -192,7 +212,7 @@ io.on('connection', (socket) => {
     const conn = { ws: null, stats };
     connections.set(u, conn);
 
-    const ws = connectTikTools(u,
+    const ws = await connectTikTools(u,
       (msg) => parseTikToolsEvent(msg, u, socket),
       (status, message) => {
         socket.emit('tiktok:status', { status, username: u, message });
