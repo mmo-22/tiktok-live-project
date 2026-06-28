@@ -161,17 +161,10 @@ function parseTikToolsEvent(msg, username, socket) {
     emitStats(username, socket);
   }
 
-  else if (ev === 'roomUser' || ev === 'viewerCount' || ev === 'viewer' || ev === 'liveInfo' || ev === 'room_user_seq') {
-    // tik.tools may nest viewer count in different places
-    const vc = data.viewerCount || data.viewer_count || data.count 
-      || data.topViewers?.length || msg.viewerCount || null;
+  else if (ev === 'roomUser' || ev === 'roomUserSeq' || ev === 'viewerCount' || ev === 'viewer' || ev === 'liveInfo') {
+    const vc = data.viewerCount || data.totalViewers || data.viewer_count || data.count || null;
     if (vc !== null) stats.viewers = vc;
     emitStats(username, socket);
-  }
-
-  // Log unknown events for debugging
-  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd'].includes(ev)) {
-    console.log('[tik.tools] Unknown event:', ev, JSON.stringify(data).substring(0, 200));
   }
 
   else if (ev === 'follow') {
@@ -192,7 +185,7 @@ function parseTikToolsEvent(msg, username, socket) {
     emitStats(username, socket);
   }
 
-  else if (ev === 'member') {
+  else if (ev === 'member' || data.type === 'member') {
     const user = u(data);
     const payload = {
       user: user.nickname || user.uniqueId,
@@ -202,6 +195,11 @@ function parseTikToolsEvent(msg, username, socket) {
     };
     socket.emit('tiktok:member', payload);
     io.to(roomOf(username)).emit('member', payload);
+  }
+
+  // Log unknown events (must be LAST in the chain)
+  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','roomInfo','emote','envelope','subscribe','linkMicBattle','linkMicArmies'].includes(ev)) {
+    console.log('[tik.tools] Unknown event:', ev, JSON.stringify(data).substring(0, 200));
   }
 }
 
