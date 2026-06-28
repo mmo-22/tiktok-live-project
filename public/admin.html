@@ -7,15 +7,27 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/admin.css" />
+  <style>
+    .nav-links { display:flex; gap:10px; }
+    .nav-link { color:#22d3ee; text-decoration:none; font-size:13px; font-weight:700; padding:6px 14px; border:1px solid rgba(34,211,238,0.3); border-radius:8px; transition:all .2s; }
+    .nav-link:hover { background:rgba(34,211,238,0.1); }
+    .links-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+    .link-card { background:#13131e; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:14px; }
+    .link-card h4 { font-size:14px; margin-bottom:4px; color:#e2e8f0; }
+    .link-card p { font-size:11px; color:#64748b; margin-bottom:10px; }
+    .link-url { font-family:monospace; font-size:11px; color:#22d3ee; word-break:break-all; background:#0d0d14; padding:8px 10px; border-radius:6px; margin-bottom:8px; }
+    .link-copy { background:#0891b2; color:#fff; border:none; padding:6px 14px; border-radius:6px; font-family:'Tajawal'; font-size:12px; font-weight:700; cursor:pointer; width:100%; }
+    .link-copy:hover { background:#22d3ee; color:#000; }
+    @media(max-width:600px) { .links-grid { grid-template-columns:1fr; } }
+  </style>
 </head>
 <body>
 
-  <!-- Header -->
   <header class="header">
     <div class="header-inner">
       <div class="logo">🎮 لوحة التحكم</div>
       <div class="nav-links">
-        <a class="nav-link" id="wheelLink" href="#">🎡 العجلة</a>
+        <a class="nav-link" id="wheelPageLink" href="/wheel">🎡 العجلة</a>
         <a class="nav-link" href="/obs">🔗 OBS Generator</a>
       </div>
       <div class="status-badge" id="statusBadge">غير متصل</div>
@@ -24,8 +36,8 @@
 
   <main class="main">
 
-    <!-- Connect Panel -->
-    <section class="card connect-card">
+    <!-- Connect -->
+    <section class="card">
       <h2 class="card-title">🔗 الاتصال بحساب TikTok</h2>
       <div class="connect-row">
         <input type="text" id="usernameInput" class="input" placeholder="@اسم_المستخدم" autocomplete="off" />
@@ -41,61 +53,42 @@
       </div>
     </section>
 
-    <!-- Two column layout -->
-    <div class="grid-2">
-
-      <!-- Chat Feed -->
-      <section class="card">
-        <div class="card-header">
-          <h2 class="card-title">💬 التعليقات</h2>
-          <button class="btn btn-sm" onclick="clearChat()">مسح</button>
+    <!-- OBS Links — visible after connect -->
+    <section class="card" id="linksCard" style="display:none">
+      <h2 class="card-title">🔗 روابط الأوفرلي — جاهزة لـ OBS</h2>
+      <p style="font-size:13px;color:#64748b;margin-bottom:0">ضع هذي الروابط في OBS كـ Browser Source</p>
+      <div class="links-grid">
+        <div class="link-card">
+          <h4>💬 أوفرلي التعليقات</h4>
+          <p>يعرض التعليقات مباشرة — 1920×1080</p>
+          <div class="link-url" id="chatOverlayUrl"></div>
+          <button class="link-copy" onclick="copyLink('chatOverlayUrl')">📋 نسخ</button>
         </div>
-        <div class="chat-feed" id="chatFeed">
-          <div class="empty-state">سيظهر هنا التعليقات بعد الاتصال</div>
+        <div class="link-card">
+          <h4>🎡 أوفرلي العجلة</h4>
+          <p>عجلة الحظ التفاعلية — 800×800</p>
+          <div class="link-url" id="wheelOverlayUrl"></div>
+          <button class="link-copy" onclick="copyLink('wheelOverlayUrl')">📋 نسخ</button>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Wheel Panel -->
-      <section class="card">
-        <div class="card-header">
-          <h2 class="card-title">🎡 عجلة الحظ</h2>
-          <span class="entries-count" id="entriesCount">0 مشارك</span>
-        </div>
+    <!-- Chat Feed -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">💬 التعليقات</h2>
+        <button class="btn btn-sm" onclick="clearChat()">مسح</button>
+      </div>
+      <div class="chat-feed" id="chatFeed">
+        <div class="empty-state">سيظهر هنا التعليقات بعد الاتصال</div>
+      </div>
+    </section>
 
-        <div class="wheel-container">
-          <canvas id="wheelCanvas" width="300" height="300"></canvas>
-          <div class="wheel-pointer">▼</div>
-        </div>
-
-        <div class="wheel-winner" id="wheelWinner" style="display:none">
-          <img id="winnerPic" src="" alt="" />
-          <div>
-            <div class="winner-label">🏆 الفائز</div>
-            <div class="winner-name" id="winnerName"></div>
-          </div>
-        </div>
-
-        <div class="wheel-actions">
-          <button class="btn btn-primary" id="spinBtn" onclick="spinWheel()">🎰 أدر العجلة</button>
-          <button class="btn btn-outline" onclick="resetWheel()">🔄 إعادة</button>
-        </div>
-
-        <div class="entries-list" id="entriesList"></div>
-      </section>
-
-    </div>
   </main>
 
-  <!-- Toast -->
   <div class="toast" id="toast"></div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <style>
-    .nav-links { display:flex; gap:10px; }
-    .nav-link { color:#22d3ee; text-decoration:none; font-size:13px; font-weight:700; padding:6px 14px; border:1px solid rgba(34,211,238,0.3); border-radius:8px; transition:all .2s; }
-    .nav-link:hover { background:rgba(34,211,238,0.1); }
-  </style>
-  <script src="/js/wheel.js"></script>
   <script src="/js/admin.js"></script>
 </body>
 </html>

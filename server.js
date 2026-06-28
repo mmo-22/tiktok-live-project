@@ -129,9 +129,11 @@ function parseTikToolsEvent(msg, username, socket) {
     socket.emit('tiktok:chat', payload);
     io.to(roomOf(username)).emit('chat', payload);
 
-    if (!wheelEntries.find(e => e.uniqueId === user.uniqueId)) {
-      wheelEntries.push({ uniqueId: user.uniqueId, nickname: payload.user, profilePicture: payload.avatar });
-      io.emit('wheel:entries', wheelEntries);
+    // Add to wheel for this username
+    const wh = getWheel(username);
+    if (!wh.entries.find(e => e.uniqueId === user.uniqueId)) {
+      wh.entries.push({ uniqueId: user.uniqueId, nickname: payload.user, profilePicture: payload.avatar });
+      io.to('wheel:' + username).emit('wheel:updateEntries', { username, entries: wh.entries });
     }
   }
 
@@ -159,9 +161,17 @@ function parseTikToolsEvent(msg, username, socket) {
     emitStats(username, socket);
   }
 
-  else if (ev === 'roomUser' || ev === 'viewerCount') {
-    stats.viewers = data.viewerCount || data.count || stats.viewers;
+  else if (ev === 'roomUser' || ev === 'viewerCount' || ev === 'viewer' || ev === 'liveInfo' || ev === 'room_user_seq') {
+    // tik.tools may nest viewer count in different places
+    const vc = data.viewerCount || data.viewer_count || data.count 
+      || data.topViewers?.length || msg.viewerCount || null;
+    if (vc !== null) stats.viewers = vc;
     emitStats(username, socket);
+  }
+
+  // Log unknown events for debugging
+  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd'].includes(ev)) {
+    console.log('[tik.tools] Unknown event:', ev, JSON.stringify(data).substring(0, 200));
   }
 
   else if (ev === 'follow') {

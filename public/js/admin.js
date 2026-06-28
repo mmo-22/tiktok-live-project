@@ -9,7 +9,7 @@ function connectTikTok() {
   if (!u) { showToast('أدخل اسم المستخدم أولاً'); return; }
   currentUsername = u;
   socket.emit('tiktok:connect', { username: u });
-  setStatus('connecting', `جاري الاتصال بـ @${u}...`);
+  setStatus('connecting', 'جاري الاتصال...');
 }
 
 function disconnectTikTok() {
@@ -22,32 +22,40 @@ function setStatus(state, label) {
   const badge = document.getElementById('statusBadge');
   badge.className = 'status-badge ' + state;
   badge.textContent = label;
-  const connectBtn    = document.getElementById('connectBtn');
-  const disconnectBtn = document.getElementById('disconnectBtn');
-  const roomInfo      = document.getElementById('roomInfo');
-  if (state === 'connected') {
-    connectBtn.style.display = 'none';
-    disconnectBtn.style.display = '';
-    roomInfo.style.display = 'flex';
-  } else {
-    connectBtn.style.display = '';
-    disconnectBtn.style.display = 'none';
-    if (state !== 'connecting') roomInfo.style.display = 'none';
-  }
+  document.getElementById('connectBtn').style.display    = state === 'connected' ? 'none' : '';
+  document.getElementById('disconnectBtn').style.display = state === 'connected' ? '' : 'none';
+  document.getElementById('roomInfo').style.display      = state === 'connected' ? 'flex' : 'none';
+}
+
+function showLinks(u) {
+  const base = location.origin;
+  document.getElementById('chatOverlayUrl').textContent  = `${base}/overlay/chat?username=${u}`;
+  document.getElementById('wheelOverlayUrl').textContent = `${base}/overlay/wheel?username=${u}`;
+  document.getElementById('wheelPageLink').href          = `/wheel?username=${u}`;
+  document.getElementById('linksCard').style.display     = 'block';
+}
+
+function copyLink(id) {
+  const url = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(url).then(() => showToast('✅ تم النسخ!'));
 }
 
 // ── Socket Events ─────────────────────────────────────────────────────────────
 socket.on('tiktok:status', ({ status, username, message }) => {
-  if      (status === 'connected')    { setStatus('connected',    `✅ متصل بـ @${username}`); showToast(`✅ متصل بـ @${username}`); }
+  if (status === 'connected') {
+    setStatus('connected', `✅ متصل بـ @${username}`);
+    showToast(`✅ متصل بـ @${username}`);
+    showLinks(username);
+  }
   else if (status === 'disconnected') { setStatus('disconnected', 'غير متصل'); currentUsername = null; }
-  else if (status === 'connecting')   { setStatus('connecting',   'جاري الاتصال...'); }
-  else if (status === 'error')        { setStatus('error',        `❌ ${message}`); showToast(`❌ ${message}`); currentUsername = null; }
+  else if (status === 'connecting')   { setStatus('connecting', 'جاري الاتصال...'); }
+  else if (status === 'error')        { setStatus('error', `❌ ${message}`); showToast(`❌ ${message}`); currentUsername = null; }
 });
 
 socket.on('tiktok:chat', (msg) => {
   stats.comments++;
   updateStats();
-  addChatMessage({ ...msg, comment: msg.comment, nickname: msg.user, profilePicture: msg.avatar });
+  addChatMessage({ nickname: msg.user, profilePicture: msg.avatar, comment: msg.comment });
 });
 
 socket.on('tiktok:gift', (gift) => {
@@ -74,11 +82,11 @@ socket.on('tiktok:member', ({ user }) => {
 });
 
 socket.on('tiktok:stats', (s) => {
-  if (s.viewers  !== undefined) stats.viewers  = s.viewers;
-  if (s.likes    !== undefined) stats.likes    = s.likes;
-  if (s.diamonds !== undefined) stats.diamonds = s.diamonds;
-  if (s.shares   !== undefined) stats.shares   = s.shares;
-  if (s.followers!== undefined) stats.followers= s.followers;
+  if (s.viewers   !== undefined) stats.viewers   = s.viewers;
+  if (s.likes     !== undefined) stats.likes     = s.likes;
+  if (s.diamonds  !== undefined) stats.diamonds  = s.diamonds;
+  if (s.shares    !== undefined) stats.shares    = s.shares;
+  if (s.followers !== undefined) stats.followers = s.followers;
   updateStats();
 });
 
@@ -100,42 +108,27 @@ function addChatMessage(msg) {
 
   const div = document.createElement('div');
   div.className = 'chat-msg' + (msg.isGift ? ' gift-msg' : '') + (msg.isSystem ? ' system-msg' : '');
-
   const letter = (msg.nickname || '?').charAt(0).toUpperCase();
   const avatar = msg.profilePicture
     ? `<img class="chat-avatar" src="${msg.profilePicture}" alt="" onerror="this.style.display='none'" />`
     : `<div class="chat-avatar-placeholder">${letter}</div>`;
 
-  div.innerHTML = `${avatar}
-    <div class="chat-body">
-      <div class="chat-user">${escapeHtml(msg.nickname || '')}</div>
-      <div class="chat-text">${escapeHtml(msg.comment || '')}</div>
-    </div>`;
-
+  div.innerHTML = `${avatar}<div class="chat-body"><div class="chat-user">${esc(msg.nickname||'')}</div><div class="chat-text">${esc(msg.comment||'')}</div></div>`;
   feed.appendChild(div);
   feed.scrollTop = feed.scrollHeight;
 }
 
 function clearChat() {
   document.getElementById('chatFeed').innerHTML = '<div class="empty-state">تم مسح التعليقات</div>';
-  stats.comments = 0;
-  stats.gifts = 0;
+  stats.comments = 0; stats.gifts = 0;
   updateStats();
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
-function escapeHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function showToast(msg) {
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(m) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = m; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
 }
-
-document.getElementById('usernameInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') connectTikTok();
-});
-
-socket.emit('wheel:get');
+document.getElementById('usernameInput').addEventListener('keydown', e => { if (e.key === 'Enter') connectTikTok(); });

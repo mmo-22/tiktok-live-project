@@ -242,7 +242,7 @@
       </div>
       <div class="field">
         <label>شريط الإحصائيات</label>
-        <select id="showStats" onchange="update()">
+        <select id="showStatsBar" onchange="update()">
           <option value="1">ظاهر</option>
           <option value="0">مخفي</option>
         </select>
@@ -419,10 +419,11 @@ function update() {
     if (el) p.set(id, el.checked ? '1' : '0');
   });
   // showStats from dropdown
-  p.set('showStats', document.getElementById('showStats').value || '1');
+  p.set('showStats', document.getElementById('showStatsBar').value || '1');
 
   const url = base + '?' + p.toString();
   document.getElementById('url-output').textContent = url;
+  updateChatOverlayLink();
 }
 
 function copyUrl() {
@@ -439,7 +440,8 @@ function copyUrl() {
 update();
 
 // Chat overlay direct link
-function updateChatOverlayLink(url) {
+function updateChatOverlayLink() {
+  const url = document.getElementById('url-output').textContent;
   const card = document.getElementById('chatOverlayCard');
   const urlEl = document.getElementById('chatOverlayUrl');
   const previewBtn = document.getElementById('previewOverlayBtn');
@@ -461,14 +463,6 @@ function copyChatOverlay() {
     btn.style.background = '#1dba72';
     setTimeout(() => { btn.textContent = '📋 انسخ رابط الأوفرلي'; btn.style.background = '#ff0050'; }, 2000);
   });
-}
-
-// Patch update() to also update chat overlay link
-const _origUpdate = update;
-function update() {
-  _origUpdate();
-  const url = document.getElementById('url-output').textContent;
-  updateChatOverlayLink(url.includes('أدخل') ? null : url);
 }
 
 // Auto-fill username from URL param

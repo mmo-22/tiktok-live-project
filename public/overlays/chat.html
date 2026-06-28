@@ -276,7 +276,7 @@ function unlockSound() {
     g.gain.setValueAtTime(0, c.currentTime);
     o.connect(g); g.connect(c.destination);
     o.start(); o.stop(c.currentTime + 0.01);
-    document.getElementById('sound-unlock').classList.add('hidden');
+    const unlockEl = document.getElementById('sound-unlock'); if (unlockEl) unlockEl.classList.add('hidden');
   } catch(_) {}
 }
 
