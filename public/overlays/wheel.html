@@ -58,15 +58,26 @@ const W=canvas.width, H=canvas.height, CX=W/2, CY=H/2, R=CX-8;
 let entries=[], angle=0;
 
 const socket = io({ transports:['websocket','polling'] });
-socket.on('connect', () => {
-  socket.emit('overlay:join', { username });
-  socket.emit('wheel:join', { username });
-  socket.emit('wheel:getState', { username });
-});
-socket.on('reconnect', () => {
-  socket.emit('overlay:join', { username });
-  socket.emit('wheel:join', { username });
-});
+
+let resolvedUsername = username;
+
+async function resolveAndJoin() {
+  if (!resolvedUsername) {
+    try {
+      const res = await fetch('/api/active');
+      const data = await res.json();
+      if (data.usernames && data.usernames.length > 0) resolvedUsername = data.usernames[0];
+    } catch(_) {}
+  }
+  if (resolvedUsername) {
+    socket.emit('overlay:join', { username: resolvedUsername });
+    socket.emit('wheel:join', { username: resolvedUsername });
+    socket.emit('wheel:getState', { username: resolvedUsername });
+  }
+}
+
+socket.on('connect', resolveAndJoin);
+socket.on('reconnect', resolveAndJoin);
 
 socket.on('wheel:state', (s) => {
   if (s.entries) { entries=s.entries; draw(angle); }

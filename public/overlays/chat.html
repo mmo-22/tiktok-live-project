@@ -419,12 +419,27 @@ const socket = io({
   reconnectionAttempts: Infinity,
   reconnectionDelay: 2000,
 });
-socket.on('connect', () => {
-  if (cfg.username) socket.emit('join', { username: cfg.username });
-});
-socket.on('reconnect', () => {
-  if (cfg.username) socket.emit('join', { username: cfg.username });
-});
+
+// Auto-resolve username: from URL or from server's active connection
+async function resolveUsername() {
+  if (cfg.username) return cfg.username;
+  try {
+    const res = await fetch('/api/active');
+    const data = await res.json();
+    if (data.usernames && data.usernames.length > 0) return data.usernames[0];
+  } catch(_) {}
+  return '';
+}
+
+let resolvedUsername = cfg.username;
+
+async function joinRoom() {
+  resolvedUsername = await resolveUsername();
+  if (resolvedUsername) socket.emit('join', { username: resolvedUsername });
+}
+
+socket.on('connect', joinRoom);
+socket.on('reconnect', joinRoom);
 
 // History — رسائل مخزنة على السيرفر
 socket.on('history', (messages) => {

@@ -145,9 +145,24 @@ input::placeholder{color:var(--muted)}
 <script>
 const socket = io({ transports:['websocket','polling'] });
 
-// Get username from URL
+// Get username from URL or auto-resolve from server
 const params = new URLSearchParams(location.search);
-const username = params.get('username') || params.get('u') || '';
+let username = params.get('username') || params.get('u') || '';
+
+async function autoResolveUsername() {
+  if (username) return;
+  try {
+    const res = await fetch('/api/active');
+    const data = await res.json();
+    if (data.usernames && data.usernames.length > 0) {
+      username = data.usernames[0];
+      // Update overlay link
+      const overlayUrl = `${location.origin}/overlay/wheel?username=${username}`;
+      document.getElementById('overlayLink').href = overlayUrl;
+      document.getElementById('overlayLink').textContent = overlayUrl;
+    }
+  } catch(_) {}
+}
 
 // Set overlay link
 const overlayUrl = `${location.origin}/overlay/wheel?username=${username}`;
@@ -161,6 +176,7 @@ let spinning = false;
 let winner = null;
 let angle = 0;
 
+const TEAL = '#22d3ee';
 const COLORS = ['#0891b2','#7c3aed','#dc2626','#d97706','#059669','#0e7490','#6d28d9','#b91c1c','#b45309','#047857','#22d3ee','#a78bfa','#f87171','#fbbf24','#34d399'];
 
 // ── Canvas ────────────────────────────────────────────────
@@ -194,10 +210,8 @@ function drawWheel(a = 0) {
   // center dot
   ctx.beginPath(); ctx.arc(CX,CY,16,0,Math.PI*2);
   ctx.fillStyle='#06060b'; ctx.fill();
-  ctx.strokeStyle=var_teal; ctx.lineWidth=2; ctx.stroke();
+  ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.stroke();
 }
-const var_teal = '#22d3ee';
-
 // ── Spin Animation ────────────────────────────────────────
 function animateSpin(targetAngle, duration, onDone) {
   const startA = angle, startT = performance.now();
@@ -301,7 +315,8 @@ function clearEntries() {
 }
 
 // ── Socket Events ─────────────────────────────────────────
-socket.on('connect', () => {
+socket.on('connect', async () => {
+  await autoResolveUsername();
   socket.emit('wheel:join', { username });
   socket.emit('wheel:getState', { username });
 });

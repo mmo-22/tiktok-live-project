@@ -12,6 +12,11 @@ const io = new Server(server, { cors: { origin: '*' } });
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// API: get active connected usernames
+app.get('/api/active', (_, res) => {
+  res.json({ usernames: [...connections.keys()] });
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
