@@ -19,6 +19,7 @@ app.get('/',              (_, res) => res.sendFile(path.join(__dirname, 'public'
 app.get('/obs',           (_, res) => res.sendFile(path.join(__dirname, 'public', 'obs-generator.html')));
 app.get('/overlay/chat',  (_, res) => res.sendFile(path.join(__dirname, 'public', 'overlays', 'chat.html')));
 app.get('/overlay/wheel', (_, res) => res.sendFile(path.join(__dirname, 'public', 'overlays', 'wheel.html')));
+app.get('/wheel',          (_, res) => res.sendFile(path.join(__dirname, 'public', 'wheel.html')));
 
 // ── API: Save tik.tools key at runtime ────────────────────────────────────────
 app.post('/api/set-key', (req, res) => {
@@ -32,9 +33,12 @@ app.post('/api/set-key', (req, res) => {
 
 // ── State ──────────────────────────────────────────────────────────────────────
 const connections = new Map(); // username -> { ws, stats, retryTimer }
-let wheelEntries = [];
-let wheelSpinning = false;
-let wheelWinner = null;
+// Wheel state per username
+const wheelState = new Map(); // username -> { keyword, entries, winner }
+function getWheel(u) {
+  if (!wheelState.has(u)) wheelState.set(u, { keyword: 'اشتراك', entries: [], winner: null });
+  return wheelState.get(u);
+}
 
 function roomOf(u) { return `room:${u}`; }
 
@@ -240,18 +244,63 @@ io.on('connection', (socket) => {
   socket.on('join',         ({ username }) => { const u = (username||'').replace('@','').trim().toLowerCase(); if (u) socket.join(roomOf(u)); });
   socket.on('overlay:join', ({ username }) => { const u = (username||'').replace('@','').trim().toLowerCase(); if (u) socket.join(roomOf(u)); });
 
-  // Wheel
-  socket.on('wheel:spin', () => {
-    if (wheelSpinning || !wheelEntries.length) return;
-    wheelSpinning = true;
-    const winner = wheelEntries[Math.floor(Math.random() * wheelEntries.length)];
-    wheelWinner = winner;
-    io.emit('wheel:spinning', { winner });
-    setTimeout(() => { wheelSpinning = false; io.emit('wheel:result', { winner }); }, 5000);
+  // Wheel — per-username state
+  socket.on('wheel:join', ({ username }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    if (u) socket.join(`wheel:${u}`);
   });
-  socket.on('wheel:reset',  () => { wheelEntries = []; wheelWinner = null; wheelSpinning = false; io.emit('wheel:entries', wheelEntries); io.emit('wheel:reset'); });
-  socket.on('wheel:remove', ({ uniqueId }) => { wheelEntries = wheelEntries.filter(e => e.uniqueId !== uniqueId); io.emit('wheel:entries', wheelEntries); });
-  socket.on('wheel:get',    () => { socket.emit('wheel:entries', wheelEntries); if (wheelWinner) socket.emit('wheel:result', { winner: wheelWinner }); });
+
+  socket.on('wheel:getState', ({ username }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    const w = getWheel(u);
+    socket.emit('wheel:state', { keyword: w.keyword, entries: w.entries, winner: w.winner });
+  });
+
+  socket.on('wheel:setKeyword', ({ username, keyword }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    getWheel(u).keyword = keyword;
+  });
+
+  socket.on('wheel:updateEntries', ({ username, entries }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    getWheel(u).entries = entries || [];
+    io.to(`wheel:${u}`).emit('wheel:updateEntries', { username: u, entries: getWheel(u).entries });
+  });
+
+  socket.on('wheel:removeEntry', ({ username, uniqueId }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    const w = getWheel(u);
+    w.entries = w.entries.filter(e => e.uniqueId !== uniqueId);
+    io.to(`wheel:${u}`).emit('wheel:updateEntries', { username: u, entries: w.entries });
+  });
+
+  socket.on('wheel:spin', ({ username, winner, entries }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    const w = getWheel(u);
+    if (entries) w.entries = entries;
+    w.winner = winner;
+    io.to(`wheel:${u}`).emit('wheel:spin', { username: u, winner, entries: w.entries });
+  });
+
+  socket.on('wheel:result', ({ username, winner }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    getWheel(u).winner = winner;
+    io.to(`wheel:${u}`).emit('wheel:result', { username: u, winner });
+  });
+
+  socket.on('wheel:reset', ({ username }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    getWheel(u).winner = null;
+    io.to(`wheel:${u}`).emit('wheel:reset', { username: u });
+  });
+
+  socket.on('wheel:clear', ({ username }) => {
+    const u = (username||'').replace('@','').trim().toLowerCase();
+    const w = getWheel(u);
+    w.entries = []; w.winner = null;
+    io.to(`wheel:${u}`).emit('wheel:updateEntries', { username: u, entries: [] });
+    io.to(`wheel:${u}`).emit('wheel:clear', { username: u });
+  });
 });
 
 server.listen(PORT, () => console.log(`✅ Server → http://localhost:${PORT}`));

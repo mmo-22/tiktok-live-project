@@ -14,6 +14,10 @@
   <header class="header">
     <div class="header-inner">
       <div class="logo">🎮 لوحة التحكم</div>
+      <div class="nav-links">
+        <a class="nav-link" id="wheelLink" href="#">🎡 العجلة</a>
+        <a class="nav-link" href="/obs">🔗 OBS Generator</a>
+      </div>
       <div class="status-badge" id="statusBadge">غير متصل</div>
     </div>
   </header>
@@ -86,6 +90,11 @@
   <div class="toast" id="toast"></div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <style>
+    .nav-links { display:flex; gap:10px; }
+    .nav-link { color:#22d3ee; text-decoration:none; font-size:13px; font-weight:700; padding:6px 14px; border:1px solid rgba(34,211,238,0.3); border-radius:8px; transition:all .2s; }
+    .nav-link:hover { background:rgba(34,211,238,0.1); }
+  </style>
   <script src="/js/wheel.js"></script>
   <script src="/js/admin.js"></script>
 </body>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عجلة الحظ — تحكم</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#06060b; --surface:#0d0d14; --surface2:#13131e;
+  --border:rgba(255,255,255,0.07); --teal:#0891b2; --teal2:#22d3ee;
+  --gold:#f5c542; --muted:#64748b; --text:#e2e8f0;
+  --danger:#ef4444; --green:#22c55e;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Tajawal',sans-serif;min-height:100vh;padding:24px 16px}
+.wrap{max-width:960px;margin:0 auto;display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start}
+h1{font-size:20px;font-weight:800;color:var(--teal2);margin-bottom:20px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px}
+.card-title{font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+
+input,select{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'Tajawal',sans-serif;font-size:14px;padding:9px 12px;border-radius:9px;outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+input::placeholder{color:var(--muted)}
+
+.btn{padding:10px 18px;border-radius:10px;border:none;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-teal{background:var(--teal);color:#fff} .btn-teal:hover{background:var(--teal2);color:#000}
+.btn-gold{background:var(--gold);color:#000} .btn-gold:hover{opacity:.9}
+.btn-danger{background:var(--danger);color:#fff} .btn-danger:hover{opacity:.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)} .btn-outline:hover{border-color:var(--teal)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Keyword row */
+.kw-row{display:flex;gap:10px;align-items:center}
+.kw-badge{background:rgba(8,145,178,.15);border:1px solid var(--teal);color:var(--teal2);padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700}
+
+/* Stats */
+.stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.stat{text-align:center}
+.stat-val{font-size:22px;font-weight:800;color:var(--teal2)}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Entries */
+.entries-list{display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto}
+.entries-list::-webkit-scrollbar{width:3px}
+.entries-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.entry{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:8px;font-size:13px;animation:fadeIn .15s ease}
+.entry img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+.entry-ph{width:26px;height:26px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.entry-name{flex:1}
+.entry-rm{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 4px;transition:color .2s}
+.entry-rm:hover{color:var(--danger)}
+.empty-state{color:var(--muted);font-size:13px;text-align:center;padding:28px 0}
+
+/* Canvas wheel */
+.wheel-wrap{position:relative;width:340px;height:340px;margin:0 auto 16px}
+#wheelCanvas{border-radius:50%;display:block}
+.wheel-ptr{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:26px;color:var(--gold);text-shadow:0 2px 8px rgba(0,0,0,.6);z-index:2;pointer-events:none}
+
+/* Winner */
+.winner-box{background:linear-gradient(135deg,rgba(245,197,66,.1),rgba(8,145,178,.1));border:1px solid var(--gold);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:14px;animation:fadeIn .3s ease}
+.winner-box img,.winner-box .w-ph{width:48px;height:48px;border-radius:50%;border:2px solid var(--gold);object-fit:cover;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;background:var(--teal)}
+.w-lbl{font-size:11px;color:var(--gold);font-weight:700;margin-bottom:3px}
+.w-name{font-size:18px;font-weight:800}
+
+/* Actions */
+.actions{display:flex;gap:8px;margin-bottom:14px}
+.actions .btn{flex:1;font-size:13px;padding:10px 8px}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 22px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .3s;z-index:999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:720px){.wrap{grid-template-columns:1fr}.wheel-wrap{width:280px;height:280px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Right col: settings + entries -->
+  <div>
+    <h1>🎡 عجلة الحظ</h1>
+
+    <!-- Keyword -->
+    <div class="card">
+      <div class="card-title">كلمة الدخول</div>
+      <div class="kw-row">
+        <input type="text" id="kwInput" placeholder="مثال: اشتراك" value="اشتراك">
+        <button class="btn btn-teal" onclick="setKeyword()">حفظ</button>
+      </div>
+      <div style="margin-top:10px;font-size:13px;color:var(--muted)">
+        كل من يكتب هذه الكلمة في التعليقات يدخل العجلة
+        <span class="kw-badge" id="kwBadge" style="margin-right:8px">اشتراك</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-val" id="entryCount">0</div><div class="stat-lbl">مشارك</div></div>
+        <div class="stat"><div class="stat-val" id="matchCount">0</div><div class="stat-lbl">تعليق مطابق</div></div>
+      </div>
+    </div>
+
+    <!-- Entries -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="card-title" style="margin-bottom:0">المشاركون</div>
+        <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="clearEntries()">مسح الكل</button>
+      </div>
+      <div class="entries-list" id="entriesList">
+        <div class="empty-state">لا يوجد مشاركون بعد</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Left col: wheel -->
+  <div>
+    <div class="card">
+      <div class="card-title">العجلة</div>
+
+      <div class="wheel-wrap">
+        <div class="wheel-ptr">▼</div>
+        <canvas id="wheelCanvas" width="340" height="340"></canvas>
+      </div>
+
+      <div class="winner-box" id="winnerBox" style="display:none"></div>
+
+      <div class="actions">
+        <button class="btn btn-gold" id="spinBtn" onclick="spinWheel()">🎰 أدر العجلة</button>
+        <button class="btn btn-outline" onclick="resetWinner()">✕ إخفاء الفائز</button>
+      </div>
+
+      <div style="font-size:12px;color:var(--muted);text-align:center">
+        رابط الأوفرلي:
+        <a id="overlayLink" href="#" target="_blank" style="color:var(--teal2);word-break:break-all"></a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io({ transports:['websocket','polling'] });
+
+// Get username from URL
+const params = new URLSearchParams(location.search);
+const username = params.get('username') || params.get('u') || '';
+
+// Set overlay link
+const overlayUrl = `${location.origin}/overlay/wheel?username=${username}`;
+document.getElementById('overlayLink').href = overlayUrl;
+document.getElementById('overlayLink').textContent = overlayUrl;
+
+let keyword = 'اشتراك';
+let entries = [];       // [{uniqueId, nickname, profilePicture}]
+let matchCount = 0;
+let spinning = false;
+let winner = null;
+let angle = 0;
+
+const COLORS = ['#0891b2','#7c3aed','#dc2626','#d97706','#059669','#0e7490','#6d28d9','#b91c1c','#b45309','#047857','#22d3ee','#a78bfa','#f87171','#fbbf24','#34d399'];
+
+// ── Canvas ────────────────────────────────────────────────
+const canvas = document.getElementById('wheelCanvas');
+const ctx = canvas.getContext('2d');
+const CX = canvas.width/2, CY = canvas.height/2, R = CX - 8;
+
+function drawWheel(a = 0) {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if (!entries.length) {
+    ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
+    ctx.fillStyle='#13131e'; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#64748b'; ctx.font='bold 15px Tajawal'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('أضف مشاركين', CX, CY);
+    return;
+  }
+  const slice = Math.PI*2/entries.length;
+  entries.forEach((e,i) => {
+    const s=a+i*slice, en=s+slice;
+    ctx.beginPath(); ctx.moveTo(CX,CY); ctx.arc(CX,CY,R,s,en); ctx.closePath();
+    ctx.fillStyle=COLORS[i%COLORS.length]; ctx.fill();
+    ctx.strokeStyle='#06060b'; ctx.lineWidth=2; ctx.stroke();
+    ctx.save(); ctx.translate(CX,CY); ctx.rotate(s+slice/2);
+    ctx.textAlign='right'; ctx.fillStyle='#fff';
+    ctx.font=`bold ${entries.length>20?10:entries.length>10?12:14}px Tajawal`;
+    ctx.shadowColor='rgba(0,0,0,0.5)'; ctx.shadowBlur=3;
+    ctx.fillText((e.nickname||e.uniqueId).substring(0,13), R-10, 5);
+    ctx.restore();
+  });
+  // center dot
+  ctx.beginPath(); ctx.arc(CX,CY,16,0,Math.PI*2);
+  ctx.fillStyle='#06060b'; ctx.fill();
+  ctx.strokeStyle=var_teal; ctx.lineWidth=2; ctx.stroke();
+}
+const var_teal = '#22d3ee';
+
+// ── Spin Animation ────────────────────────────────────────
+function animateSpin(targetAngle, duration, onDone) {
+  const startA = angle, startT = performance.now();
+  function step(now) {
+    const p = Math.min((now-startT)/duration, 1);
+    const ease = 1 - Math.pow(1-p, 3);
+    angle = startA + (targetAngle-startA)*ease;
+    drawWheel(angle);
+    if (p < 1) requestAnimationFrame(step);
+    else { angle = targetAngle; drawWheel(angle); onDone && onDone(); }
+  }
+  requestAnimationFrame(step);
+}
+
+// ── Spin ──────────────────────────────────────────────────
+function spinWheel() {
+  if (spinning || entries.length < 2) { showToast(entries.length < 2 ? 'يحتاج مشاركين أكثر' : 'جاري الدوران...'); return; }
+  spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+  document.getElementById('winnerBox').style.display = 'none';
+
+  const winnerIdx = Math.floor(Math.random() * entries.length);
+  winner = entries[winnerIdx];
+
+  const slice = Math.PI*2/entries.length;
+  const winnerMid = winnerIdx*slice + slice/2;
+  const extraSpins = Math.PI*2*(5+Math.random()*3);
+  const target = angle + extraSpins + (Math.PI*1.5 - winnerMid - (angle%(Math.PI*2)));
+
+  // Tell overlay
+  socket.emit('wheel:spin', { username, winner, entries });
+
+  animateSpin(target, 5000, () => {
+    spinning = false;
+    document.getElementById('spinBtn').disabled = false;
+    showWinner(winner);
+    socket.emit('wheel:result', { username, winner });
+  });
+}
+
+function showWinner(w) {
+  const box = document.getElementById('winnerBox');
+  const av = w.profilePicture
+    ? `<img src="${w.profilePicture}" onerror="this.style.display='none'">`
+    : `<div class="w-ph">${(w.nickname||'?')[0].toUpperCase()}</div>`;
+  box.innerHTML = `${av}<div><div class="w-lbl">🏆 الفائز</div><div class="w-name">${esc(w.nickname||w.uniqueId)}</div></div>`;
+  box.style.display = 'flex';
+}
+
+function resetWinner() {
+  document.getElementById('winnerBox').style.display = 'none';
+  winner = null;
+  socket.emit('wheel:reset', { username });
+}
+
+// ── Keyword ───────────────────────────────────────────────
+function setKeyword() {
+  const v = document.getElementById('kwInput').value.trim();
+  if (!v) return;
+  keyword = v;
+  document.getElementById('kwBadge').textContent = keyword;
+  socket.emit('wheel:setKeyword', { username, keyword });
+  showToast(`✅ الكلمة: ${keyword}`);
+}
+
+// ── Entries ───────────────────────────────────────────────
+function addEntry(e) {
+  if (entries.find(x => x.uniqueId === e.uniqueId)) return false;
+  entries.push(e);
+  return true;
+}
+
+function renderEntries() {
+  const list = document.getElementById('entriesList');
+  document.getElementById('entryCount').textContent = entries.length;
+  if (!entries.length) { list.innerHTML = '<div class="empty-state">لا يوجد مشاركون بعد</div>'; drawWheel(angle); return; }
+  list.innerHTML = '';
+  entries.forEach(e => {
+    const d = document.createElement('div'); d.className='entry';
+    const av = e.profilePicture
+      ? `<img src="${e.profilePicture}" onerror="this.style.display='none'">`
+      : `<div class="entry-ph">${(e.nickname||'?')[0].toUpperCase()}</div>`;
+    d.innerHTML = `${av}<span class="entry-name">${esc(e.nickname||e.uniqueId)}</span><button class="entry-rm" onclick="removeEntry('${e.uniqueId}')">✕</button>`;
+    list.appendChild(d);
+  });
+  drawWheel(angle);
+}
+
+function removeEntry(uid) {
+  entries = entries.filter(e=>e.uniqueId!==uid);
+  socket.emit('wheel:removeEntry', { username, uniqueId: uid });
+  renderEntries();
+}
+
+function clearEntries() {
+  if (!confirm('حذف جميع المشاركين؟')) return;
+  entries = []; matchCount = 0;
+  document.getElementById('matchCount').textContent = 0;
+  socket.emit('wheel:clear', { username });
+  renderEntries();
+}
+
+// ── Socket Events ─────────────────────────────────────────
+socket.on('connect', () => {
+  socket.emit('wheel:join', { username });
+  socket.emit('wheel:getState', { username });
+});
+
+socket.on('wheel:state', (state) => {
+  if (state.keyword) { keyword = state.keyword; document.getElementById('kwInput').value = keyword; document.getElementById('kwBadge').textContent = keyword; }
+  if (state.entries) { entries = state.entries; renderEntries(); }
+  if (state.matchCount) { matchCount = state.matchCount; document.getElementById('matchCount').textContent = matchCount; }
+  if (state.winner) { winner = state.winner; showWinner(winner); }
+});
+
+// Chat comes from admin — check keyword
+socket.on('tiktok:chat', (msg) => {
+  const comment = (msg.comment||'').trim();
+  if (!keyword || !comment.includes(keyword)) return;
+  matchCount++;
+  document.getElementById('matchCount').textContent = matchCount;
+  if (addEntry({ uniqueId: msg.uniqueId||msg.user, nickname: msg.user, profilePicture: msg.avatar })) {
+    renderEntries();
+    socket.emit('wheel:updateEntries', { username, entries });
+  }
+});
+
+// ── Utils ─────────────────────────────────────────────────
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200) }
+
+drawWheel();
+</script>
+</body>
+</html>
