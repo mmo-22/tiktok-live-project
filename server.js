@@ -128,13 +128,7 @@ function parseTikToolsEvent(msg, username, socket) {
     };
     socket.emit('tiktok:chat', payload);
     io.to(roomOf(username)).emit('chat', payload);
-
-    // Add to wheel for this username
-    const wh = getWheel(username);
-    if (!wh.entries.find(e => e.uniqueId === user.uniqueId)) {
-      wh.entries.push({ uniqueId: user.uniqueId, nickname: payload.user, profilePicture: payload.avatar });
-      io.to('wheel:' + username).emit('wheel:updateEntries', { username, entries: wh.entries });
-    }
+    // Wheel registration is handled client-side (wheel page checks keyword + registration state)
   }
 
   else if (ev === 'gift') {
@@ -233,6 +227,8 @@ io.on('connection', (socket) => {
       (msg) => parseTikToolsEvent(msg, u, socket),
       (status, message) => {
         socket.emit('tiktok:status', { status, username: u, message });
+        // Broadcast to ALL sockets so OBS generator and other pages get updates
+        io.emit('tiktok:status', { status, username: u, message });
         if (status === 'connected') io.to(roomOf(u)).emit('overlay:status', { connected: true });
         if (status === 'disconnected' || status === 'error') {
           io.to(roomOf(u)).emit('overlay:status', { connected: false });

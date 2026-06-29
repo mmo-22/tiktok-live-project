@@ -101,6 +101,17 @@ input::placeholder{color:var(--muted)}
       </div>
     </div>
 
+    <!-- Registration Toggle -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:3px" id="regLabel">📝 التسجيل مغلق</div>
+          <div style="font-size:12px;color:var(--muted)" id="regHint">اضغط لفتح التسجيل وقبول المشاركين</div>
+        </div>
+        <button class="btn btn-teal" id="regBtn" onclick="toggleRegistration()" style="min-width:100px">فتح التسجيل</button>
+      </div>
+    </div>
+
     <!-- Entries -->
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
@@ -170,6 +181,7 @@ document.getElementById('overlayLink').href = overlayUrl;
 document.getElementById('overlayLink').textContent = overlayUrl;
 
 let keyword = 'اشتراك';
+let registrationOpen = false;
 let entries = [];       // [{uniqueId, nickname, profilePicture}]
 let matchCount = 0;
 let spinning = false;
@@ -267,6 +279,26 @@ function resetWinner() {
   socket.emit('wheel:reset', { username });
 }
 
+// ── Registration Toggle ────────────────────────────────────
+function toggleRegistration() {
+  registrationOpen = !registrationOpen;
+  const btn = document.getElementById('regBtn');
+  const label = document.getElementById('regLabel');
+  const hint = document.getElementById('regHint');
+  if (registrationOpen) {
+    btn.textContent = 'إيقاف التسجيل';
+    btn.style.background = '#ef4444';
+    label.textContent = '🟢 التسجيل مفتوح';
+    hint.textContent = 'المشاركين اللي يكتبون الكلمة يتضافون للعجلة';
+  } else {
+    btn.textContent = 'فتح التسجيل';
+    btn.style.background = '#0891b2';
+    label.textContent = '📝 التسجيل مغلق';
+    hint.textContent = 'اضغط لفتح التسجيل وقبول المشاركين';
+  }
+  showToast(registrationOpen ? '✅ التسجيل مفتوح' : '⛔ التسجيل مغلق');
+}
+
 // ── Keyword ───────────────────────────────────────────────
 function setKeyword() {
   const v = document.getElementById('kwInput').value.trim();
@@ -318,6 +350,7 @@ function clearEntries() {
 socket.on('connect', async () => {
   await autoResolveUsername();
   socket.emit('wheel:join', { username });
+  socket.emit('join', { username }); // join overlay room to receive chat events
   socket.emit('wheel:getState', { username });
 });
 
@@ -328,8 +361,9 @@ socket.on('wheel:state', (state) => {
   if (state.winner) { winner = state.winner; showWinner(winner); }
 });
 
-// Chat comes from admin — check keyword
-socket.on('tiktok:chat', (msg) => {
+// Listen to chat from overlay room
+socket.on('chat', (msg) => {
+  if (!registrationOpen) return;
   const comment = (msg.comment||'').trim();
   if (!keyword || !comment.includes(keyword)) return;
   matchCount++;

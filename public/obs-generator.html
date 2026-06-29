@@ -101,7 +101,10 @@
 
   <!-- Connection -->
   <div class="card">
-    <div class="card-title">الاتصال</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="card-title" style="margin-bottom:0">الاتصال</div>
+      <div id="connBadge" style="font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;background:rgba(255,100,100,0.1);border:1px solid rgba(255,100,100,0.3);color:#ff6b6b">غير متصل</div>
+    </div>
     <div class="field">
       <label>يوزرنيم TikTok</label>
       <input type="text" id="username" placeholder="dowp009" oninput="update()">
@@ -304,20 +307,6 @@
     </div>
   </div>
 
-  <!-- tik.tools API Key -->
-  <div class="card">
-    <div class="card-title">🔑 tik.tools API Key</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">المفتاح يُحفظ في سيرفرك ويُستخدم للاتصال بـ TikTok Live</p>
-    <div style="display:flex;gap:10px;align-items:center">
-      <div style="position:relative;flex:1">
-        <input type="password" id="tikToolKey" placeholder="أدخل API Key من tik.tools" style="width:100%;padding-left:40px">
-        <button onclick="toggleKeyVisibility()" id="eyeBtn" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px">👁</button>
-      </div>
-      <button onclick="saveApiKey()" id="saveKeyBtn" style="padding:8px 20px;background:var(--accent2);color:#000;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">حفظ</button>
-    </div>
-    <div id="keyStatus" style="margin-top:10px;font-size:13px;display:none"></div>
-  </div>
-
   <!-- Output -->
   <div class="card">
     <div class="card-title">الرابط الجاهز</div>
@@ -469,50 +458,41 @@ function copyChatOverlay() {
 const urlU = new URLSearchParams(location.search).get('u');
 if (urlU) { document.getElementById('username').value = urlU; update(); }
 
-// ── tik.tools API Key ─────────────────────────────────────
-function toggleKeyVisibility() {
-  const inp = document.getElementById('tikToolKey');
-  const btn = document.getElementById('eyeBtn');
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
-  else { inp.type = 'password'; btn.textContent = '👁'; }
-}
 
-async function saveApiKey() {
-  const key = document.getElementById('tikToolKey').value.trim();
-  if (!key) { showKeyStatus('أدخل المفتاح أولاً', 'error'); return; }
+// ── Socket.IO: auto-fill username from server ─────────────
+const obsSocket = io({ transports: ['websocket', 'polling'] });
 
-  const btn = document.getElementById('saveKeyBtn');
-  btn.textContent = 'جاري الحفظ...';
-  btn.disabled = true;
-
-  try {
-    const res = await fetch('/api/set-key', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      showKeyStatus('✅ تم الحفظ بنجاح', 'success');
-      document.getElementById('tikToolKey').value = '';
-    } else {
-      showKeyStatus('❌ ' + (data.error || 'حدث خطأ'), 'error');
-    }
-  } catch (e) {
-    showKeyStatus('❌ تعذّر الاتصال بالسيرفر', 'error');
+obsSocket.on('tiktok:status', ({ status, username: u }) => {
+  const badge = document.getElementById('connBadge');
+  if (status === 'connected') {
+    badge.textContent = '✅ متصل بـ @' + u;
+    badge.style.background = 'rgba(29,186,114,0.1)';
+    badge.style.borderColor = 'rgba(29,186,114,0.3)';
+    badge.style.color = '#1dba72';
+    // Auto-fill username
+    document.getElementById('username').value = u;
+    update();
+  } else if (status === 'disconnected') {
+    badge.textContent = 'غير متصل';
+    badge.style.background = 'rgba(255,100,100,0.1)';
+    badge.style.borderColor = 'rgba(255,100,100,0.3)';
+    badge.style.color = '#ff6b6b';
   }
+});
 
-  btn.textContent = 'حفظ';
-  btn.disabled = false;
-}
-
-function showKeyStatus(msg, type) {
-  const el = document.getElementById('keyStatus');
-  el.textContent = msg;
-  el.style.display = 'block';
-  el.style.color = type === 'success' ? '#1dba72' : '#ff6b6b';
-  setTimeout(() => { el.style.display = 'none'; }, 3000);
-}
+// Check active connection on load
+fetch('/api/active').then(r => r.json()).then(d => {
+  if (d.usernames && d.usernames.length > 0) {
+    const u = d.usernames[0];
+    document.getElementById('username').value = u;
+    update();
+    const badge = document.getElementById('connBadge');
+    badge.textContent = '✅ متصل بـ @' + u;
+    badge.style.background = 'rgba(29,186,114,0.1)';
+    badge.style.borderColor = 'rgba(29,186,114,0.3)';
+    badge.style.color = '#1dba72';
+  }
+}).catch(() => {});
 </script>
 </body>
 </html>
