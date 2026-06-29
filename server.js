@@ -48,7 +48,7 @@ function getWheel(u) {
 function roomOf(u) { return `room:${u}`; }
 
 // ── tik.tools WebSocket Connection ────────────────────────────────────────────
-async function connectTikTools(username, onEvent, onStatus) {
+async function connectTikTools(username, onEvent, onStatus, onReconnect) {
   const apiKey = process.env.TIKTOOL_API_KEY;
   if (!apiKey) { onStatus('error', 'TIKTOOL_API_KEY غير موجود — أضفه من صفحة الإعدادات'); return null; }
 
@@ -95,7 +95,16 @@ async function connectTikTools(username, onEvent, onStatus) {
 
   ws.on('close', (code) => {
     console.log(`[tik.tools] Disconnected @${username} code=${code}`);
-    onStatus('disconnected', `code ${code}`);
+    // Auto-reconnect on non-fatal codes (1005, 1006)
+    if ([1005, 1006].includes(code)) {
+      console.log(`[tik.tools] Auto-reconnecting @${username} in 5s...`);
+      onStatus('connecting', 'إعادة الاتصال...');
+      setTimeout(() => {
+        onReconnect && onReconnect();
+      }, 5000);
+    } else {
+      onStatus('disconnected', `code ${code}`);
+    }
   });
 
   ws.on('error', (err) => {
@@ -192,7 +201,7 @@ function parseTikToolsEvent(msg, username, socket) {
   }
 
   // Log unknown events (must be LAST in the chain)
-  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','roomInfo','emote','envelope','subscribe','linkMicBattle','linkMicArmies'].includes(ev)) {
+  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','roomInfo','emote','envelope','subscribe','linkMicBattle','linkMicArmies','giftDynamicRestriction','shareRevenueNotice','linkMicLayout','fanTicket','giftPanelUpdate','linkMicMethod','controlMessage','msgDetect','toast','liveIntro','perception','systemMessage','linkMicPermission'].includes(ev)) {
     console.log('[tik.tools] Unknown event:', ev, JSON.stringify(data).substring(0, 200));
   }
 }
@@ -223,21 +232,27 @@ io.on('connection', (socket) => {
     const conn = { ws: null, stats };
     connections.set(u, conn);
 
-    const ws = await connectTikTools(u,
-      (msg) => parseTikToolsEvent(msg, u, socket),
-      (status, message) => {
-        socket.emit('tiktok:status', { status, username: u, message });
-        // Broadcast to ALL sockets so OBS generator and other pages get updates
-        io.emit('tiktok:status', { status, username: u, message });
-        if (status === 'connected') io.to(roomOf(u)).emit('overlay:status', { connected: true });
-        if (status === 'disconnected' || status === 'error') {
-          io.to(roomOf(u)).emit('overlay:status', { connected: false });
-          connections.delete(u);
-        }
+    async function doConnect() {
+      const ws = await connectTikTools(u,
+        (msg) => parseTikToolsEvent(msg, u, socket),
+        (status, message) => {
+          socket.emit('tiktok:status', { status, username: u, message });
+          io.emit('tiktok:status', { status, username: u, message });
+          if (status === 'connected') io.to(roomOf(u)).emit('overlay:status', { connected: true });
+          if (status === 'disconnected' || status === 'error') {
+            io.to(roomOf(u)).emit('overlay:status', { connected: false });
+            connections.delete(u);
+          }
+        },
+        () => doConnect() // reconnect callback
+      );
+      if (ws) {
+        conn.ws = ws;
+        connections.set(u, conn);
       }
-    );
+    }
+    await doConnect();
 
-    if (ws) conn.ws = ws;
   });
 
   socket.on('tiktok:disconnect', ({ username }) => {
