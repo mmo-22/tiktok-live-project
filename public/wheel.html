@@ -26,8 +26,7 @@ input:focus{border-color:var(--teal)}
 .reg-toggle{display:flex;gap:8px;align-items:center;padding:14px;border-radius:12px;transition:all .3s}
 .reg-toggle.closed{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2)}
 .reg-toggle.open{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2)}
-.reg-info{flex:1}
-.reg-title{font-size:15px;font-weight:700}.reg-hint{font-size:12px;color:var(--muted);margin-top:2px}
+.reg-info{flex:1}.reg-title{font-size:15px;font-weight:700}.reg-hint{font-size:12px;color:var(--muted);margin-top:2px}
 .stats-row{display:flex;gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
 .stat-val{font-size:22px;font-weight:800;color:var(--teal2)}.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
 .entries-list{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto}
@@ -40,11 +39,18 @@ input:focus{border-color:var(--teal)}
 .wheel-wrap{position:relative;width:340px;height:340px;margin:0 auto 14px}
 #wheelCanvas{border-radius:50%;display:block}
 .wheel-ptr{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:26px;color:var(--gold);text-shadow:0 2px 8px rgba(0,0,0,.6);z-index:2}
-.winner-box{background:linear-gradient(135deg,rgba(245,197,66,.1),rgba(8,145,178,.1));border:1px solid var(--gold);border-radius:12px;padding:14px;display:flex;align-items:center;gap:14px;margin-bottom:14px;animation:fadeIn .3s}
-.winner-box img,.w-ph{width:46px;height:46px;border-radius:50%;border:2px solid var(--gold);object-fit:cover;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;background:var(--teal)}
+/* Winner box with keep/remove buttons */
+.winner-box{background:linear-gradient(135deg,rgba(245,197,66,.1),rgba(8,145,178,.1));border:1px solid var(--gold);border-radius:12px;padding:14px;display:none;flex-direction:column;gap:10px;margin-bottom:14px;animation:fadeIn .3s}
+.winner-row{display:flex;align-items:center;gap:12px}
+.winner-row img,.w-ph{width:46px;height:46px;border-radius:50%;border:2px solid var(--gold);object-fit:cover;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;background:var(--teal)}
 .w-lbl{font-size:11px;color:var(--gold);font-weight:700;margin-bottom:3px}.w-name{font-size:18px;font-weight:800}
+.winner-actions{display:flex;gap:8px}
+.winner-actions .btn{flex:1;font-size:12px;padding:8px}
 .actions{display:flex;gap:8px;margin-bottom:14px}.actions .btn{flex:1;font-size:13px;padding:10px 8px}
 .back-link{color:var(--teal2);text-decoration:none;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;margin-bottom:8px}
+.conn-badge{font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;margin-bottom:12px;display:inline-block}
+.conn-badge.on{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+.conn-badge.off{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--danger)}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 22px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .3s;z-index:999}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media(max-width:720px){.wrap{grid-template-columns:1fr}.wheel-wrap{width:280px;height:280px}}
@@ -55,6 +61,7 @@ input:focus{border-color:var(--teal)}
   <div>
     <a class="back-link" href="/">← لوحة التحكم</a>
     <h1>🎡 عجلة الحظ</h1>
+    <div class="conn-badge off" id="connBadge">غير متصل</div>
 
     <!-- Keyword -->
     <div class="card">
@@ -93,10 +100,19 @@ input:focus{border-color:var(--teal)}
     <div class="card">
       <div class="card-title">العجلة</div>
       <div class="wheel-wrap"><div class="wheel-ptr">▼</div><canvas id="wheelCanvas" width="340" height="340"></canvas></div>
-      <div class="winner-box" id="winnerBox" style="display:none"></div>
+
+      <!-- Winner with keep/remove buttons -->
+      <div class="winner-box" id="winnerBox">
+        <div class="winner-row" id="winnerRow"></div>
+        <div class="winner-actions">
+          <button class="btn btn-danger" onclick="removeWinner()">🗑 حذف من العجلة</button>
+          <button class="btn btn-outline" onclick="keepWinner()">✓ إبقاء</button>
+        </div>
+      </div>
+
       <div class="actions">
         <button class="btn btn-gold" id="spinBtn" onclick="spin()">🎰 أدر العجلة</button>
-        <button class="btn btn-outline" onclick="hideWinner()">✕ إخفاء</button>
+        <button class="btn btn-outline" onclick="clearAll()">🔄 مسح الكل</button>
       </div>
     </div>
   </div>
@@ -110,39 +126,23 @@ let entries = [];
 let accepting = false;
 let spinning = false;
 let angle = 0;
+let currentWinner = null;
+let winnerTimer = null;
 
 const COLORS = ['#0891b2','#7c3aed','#dc2626','#d97706','#059669','#0e7490','#6d28d9','#b91c1c','#b45309','#047857','#22d3ee','#a78bfa','#f87171','#fbbf24','#34d399'];
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
 const CX=canvas.width/2, CY=canvas.height/2, R=CX-8;
 
-// ── Init ──────────────────────────────────────────────────
-async function init() {
-  // Get username from URL or from server
-  const p = new URLSearchParams(location.search);
-  username = p.get('username') || p.get('u') || '';
-  if (!username) {
-    try { const r = await fetch('/api/active'); const d = await r.json(); username = d.usernames?.[0] || ''; } catch(_){}
-  }
-  if (!username) return;
-  // Load wheel state
-  try {
-    const r = await fetch(`/api/wheel/${username}`);
-    const d = await r.json();
-    entries = d.entries || [];
-    accepting = d.accepting || false;
-    document.getElementById('kwInput').value = d.keyword || 'اشتراك';
-    if (d.winner) showWinner(d.winner);
-    updateUI();
-    updateRegUI();
-  } catch(_){}
+// ── Socket ────────────────────────────────────────────────
+const socket = io({ transports:['websocket','polling'] });
+
+function joinRoom() {
+  if (username) socket.emit('join', { username });
 }
 
-// ── Socket — live updates ─────────────────────────────────
-const socket = io({ transports:['websocket','polling'] });
-socket.on('connect', () => {
-  if (username) socket.emit('join', { username });
-});
+socket.on('connect', joinRoom);
+socket.on('reconnect', joinRoom);
 
 socket.on('wheel:update', (d) => {
   entries = d.entries || [];
@@ -160,7 +160,46 @@ socket.on('wheel:status', (d) => {
   updateRegUI();
 });
 
-// ── API Calls ─────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  const p = new URLSearchParams(location.search);
+  username = p.get('username') || p.get('u') || '';
+
+  if (!username) {
+    try {
+      const r = await fetch('/api/active');
+      const d = await r.json();
+      username = d.usernames?.[0] || '';
+    } catch(_){}
+  }
+
+  // Update connection badge
+  const badge = document.getElementById('connBadge');
+  if (username) {
+    badge.textContent = '✅ ' + username;
+    badge.className = 'conn-badge on';
+  } else {
+    badge.textContent = 'غير متصل — اتصل من لوحة التحكم أولاً';
+    badge.className = 'conn-badge off';
+    return;
+  }
+
+  // Join socket room NOW (after username is resolved)
+  joinRoom();
+
+  // Load wheel state
+  try {
+    const r = await fetch(`/api/wheel/${username}`);
+    const d = await r.json();
+    entries = d.entries || [];
+    accepting = d.accepting || false;
+    document.getElementById('kwInput').value = d.keyword || 'اشتراك';
+    updateUI();
+    updateRegUI();
+  } catch(_){}
+}
+
+// ── API ───────────────────────────────────────────────────
 async function api(path, body) {
   const r = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, ...body}) });
   return r.json();
@@ -175,14 +214,14 @@ async function saveKeyword() {
 }
 
 async function toggleReg() {
-  if (!username) { toast('اتصل بحساب أولاً من لوحة التحكم'); return; }
+  if (!username) { toast('اتصل بحساب أولاً'); return; }
   try {
-    if (accepting) { await api('/api/wheel/close'); }
-    else { await api('/api/wheel/open'); }
+    if (accepting) await api('/api/wheel/close');
+    else await api('/api/wheel/open');
     accepting = !accepting;
     updateRegUI();
     toast(accepting ? '🟢 التسجيل مفتوح' : '⛔ التسجيل مغلق');
-  } catch(e) { toast('❌ خطأ في الاتصال'); }
+  } catch(e) { toast('❌ خطأ'); }
 }
 
 async function spin() {
@@ -191,35 +230,56 @@ async function spin() {
   if (entries.length < 2) { toast('يحتاج مشتركين أكثر'); return; }
   spinning = true;
   document.getElementById('spinBtn').disabled = true;
+  hideWinner();
   const d = await api('/api/wheel/spin');
   if (!d.ok) { toast('❌ ' + (d.message||'خطأ')); spinning = false; document.getElementById('spinBtn').disabled = false; }
-  // Animation will come via socket wheel:spin event
 }
 
 async function clearAll() {
+  if (!username) return;
   if (!confirm('حذف جميع المشاركين؟')) return;
   entries = [];
   updateUI();
+  hideWinner();
   await api('/api/wheel/clear');
   toast('✅ تم المسح');
 }
 
 async function removeEntry(uid) {
-  // Instant local update
   entries = entries.filter(e => e.uniqueId !== uid);
   updateUI();
   await api('/api/wheel/remove', { uniqueId: uid });
 }
 
-function hideWinner() { document.getElementById('winnerBox').style.display = 'none'; }
-
-// ── UI Updates ────────────────────────────────────────────
-function updateUI() {
-  document.getElementById('entryCount').textContent = entries.length;
-  renderEntries();
-  drawWheel(angle);
+async function removeWinner() {
+  if (!currentWinner) return;
+  await removeEntry(currentWinner.uniqueId);
+  hideWinner();
+  toast('🗑 تم حذف الفائز');
 }
 
+function keepWinner() {
+  hideWinner();
+}
+
+// ── Winner ────────────────────────────────────────────────
+function showWinner(w) {
+  currentWinner = w;
+  const box = document.getElementById('winnerBox');
+  const row = document.getElementById('winnerRow');
+  const av = w.profilePicture ? `<img src="${w.profilePicture}" onerror="this.style.display='none'">` : `<div class="w-ph">${(w.nickname||'?')[0]}</div>`;
+  row.innerHTML = `${av}<div><div class="w-lbl">🏆 الفائز</div><div class="w-name">${esc(w.nickname||w.uniqueId)}</div></div>`;
+  box.style.display = 'flex';
+  if (winnerTimer) clearTimeout(winnerTimer);
+}
+
+function hideWinner() {
+  document.getElementById('winnerBox').style.display = 'none';
+  currentWinner = null;
+  if (winnerTimer) { clearTimeout(winnerTimer); winnerTimer = null; }
+}
+
+// ── Registration UI ───────────────────────────────────────
 function updateRegUI() {
   const toggle = document.getElementById('regToggle');
   const title = document.getElementById('regTitle');
@@ -229,13 +289,21 @@ function updateRegUI() {
     toggle.className = 'reg-toggle open';
     title.textContent = '🟢 التسجيل مفتوح';
     hint.textContent = 'المشاركين يدخلون بكتابة الكلمة';
-    btn.textContent = 'إيقاف'; btn.className = 'btn btn-danger';
+    btn.textContent = 'إيقاف التسجيل';
+    btn.className = 'btn btn-danger';
   } else {
     toggle.className = 'reg-toggle closed';
     title.textContent = '⛔ التسجيل مغلق';
     hint.textContent = 'اضغط لفتح التسجيل';
-    btn.textContent = 'فتح التسجيل'; btn.className = 'btn btn-green';
+    btn.textContent = 'فتح التسجيل';
+    btn.className = 'btn btn-green';
   }
+}
+
+function updateUI() {
+  document.getElementById('entryCount').textContent = entries.length;
+  renderEntries();
+  drawWheel(angle);
 }
 
 function renderEntries() {
@@ -250,17 +318,7 @@ function renderEntries() {
   });
 }
 
-let winnerTimer = null;
-function showWinner(w) {
-  const box = document.getElementById('winnerBox');
-  const av = w.profilePicture ? `<img src="${w.profilePicture}" onerror="this.style.display='none'">` : `<div class="w-ph">${(w.nickname||'?')[0]}</div>`;
-  box.innerHTML = `${av}<div><div class="w-lbl">🏆 الفائز</div><div class="w-name">${esc(w.nickname||w.uniqueId)}</div></div>`;
-  box.style.display = 'flex';
-  if (winnerTimer) clearTimeout(winnerTimer);
-  winnerTimer = setTimeout(hideWinner, 6000);
-}
-
-// ── Canvas Wheel ──────────────────────────────────────────
+// ── Canvas ────────────────────────────────────────────────
 function drawWheel(a) {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   if (!entries.length) {
@@ -289,22 +347,23 @@ function drawWheel(a) {
 function doSpinAnimation(winner) {
   const winnerIdx = entries.findIndex(e => e.uniqueId === winner?.uniqueId);
   if (winnerIdx < 0) { spinning = false; document.getElementById('spinBtn').disabled = false; return; }
+
   const slice = (Math.PI*2) / entries.length;
   const winnerCenter = winnerIdx * slice + slice / 2;
   const finalAngle = -Math.PI/2 - winnerCenter;
   let needed = finalAngle - angle;
   needed = ((needed % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
   const target = angle + Math.PI*2*7 + needed;
-  const startA = angle, startT = performance.now(), dur = 5000;
-  document.getElementById('winnerBox').style.display = 'none';
 
-  function step(now) {
-    const p = Math.min((now-startT)/dur, 1);
-    const ease = 1 - Math.pow(1-p, 4);
-    angle = startA + (target-startA)*ease;
+  const sa=angle, st=performance.now(), dur=5000;
+  hideWinner();
+  function step(n){
+    const p=Math.min((n-st)/dur,1);
+    const ease=1-Math.pow(1-p,4);
+    angle=sa+(target-sa)*ease;
     drawWheel(angle);
-    if (p < 1) requestAnimationFrame(step);
-    else { angle = target; drawWheel(angle); spinning = false; document.getElementById('spinBtn').disabled = false; showWinner(winner); toast('🏆 ' + (winner.nickname||winner.uniqueId)); }
+    if(p<1) requestAnimationFrame(step);
+    else{angle=target;drawWheel(angle);spinning=false;document.getElementById('spinBtn').disabled=false;showWinner(winner);toast('🏆 '+winner.nickname)}
   }
   requestAnimationFrame(step);
 }
