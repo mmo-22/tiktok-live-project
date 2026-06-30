@@ -198,12 +198,16 @@ async function spin() {
 
 async function clearAll() {
   if (!confirm('حذف جميع المشاركين؟')) return;
-  await api('/api/wheel/clear');
   entries = [];
   updateUI();
+  await api('/api/wheel/clear');
+  toast('✅ تم المسح');
 }
 
 async function removeEntry(uid) {
+  // Instant local update
+  entries = entries.filter(e => e.uniqueId !== uid);
+  updateUI();
   await api('/api/wheel/remove', { uniqueId: uid });
 }
 
@@ -246,11 +250,14 @@ function renderEntries() {
   });
 }
 
+let winnerTimer = null;
 function showWinner(w) {
   const box = document.getElementById('winnerBox');
   const av = w.profilePicture ? `<img src="${w.profilePicture}" onerror="this.style.display='none'">` : `<div class="w-ph">${(w.nickname||'?')[0]}</div>`;
   box.innerHTML = `${av}<div><div class="w-lbl">🏆 الفائز</div><div class="w-name">${esc(w.nickname||w.uniqueId)}</div></div>`;
   box.style.display = 'flex';
+  if (winnerTimer) clearTimeout(winnerTimer);
+  winnerTimer = setTimeout(hideWinner, 6000);
 }
 
 // ── Canvas Wheel ──────────────────────────────────────────

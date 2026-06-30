@@ -167,6 +167,7 @@ function animateSpin(target,dur,cb){
 }
 
 // ── Winner in center ──────────────────────────────────────
+let winnerTimer = null;
 function showWinner(w) {
   const av = w.profilePicture
     ? `<img src="${w.profilePicture}" onerror="this.style.display='none'">`
@@ -174,9 +175,13 @@ function showWinner(w) {
   document.getElementById('winnerAv').innerHTML = av;
   document.getElementById('winnerName').textContent = w.nickname || w.uniqueId || '';
   document.getElementById('winnerCenter').classList.add('show');
+  // Auto-hide after 6 seconds
+  if (winnerTimer) clearTimeout(winnerTimer);
+  winnerTimer = setTimeout(hideWinner, 6000);
 }
 function hideWinner() {
   document.getElementById('winnerCenter').classList.remove('show');
+  if (winnerTimer) { clearTimeout(winnerTimer); winnerTimer = null; }
 }
 
 // ── Registration ──────────────────────────────────────────
