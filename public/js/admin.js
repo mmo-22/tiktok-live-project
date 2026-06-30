@@ -18,8 +18,13 @@ function connectTikTok() {
 }
 
 function disconnectTikTok() {
-  if (!currentUsername) return;
-  socket.emit('tiktok:disconnect', { username: currentUsername });
+  socket.emit('tiktok:disconnect', { username: currentUsername || '' });
+  // Reset UI immediately
+  setStatus('disconnected', 'غير متصل');
+  currentUsername = null;
+  stats = { viewers: 0, likes: 0, diamonds: 0, shares: 0, followers: 0, comments: 0, gifts: 0 };
+  updateStats();
+  document.getElementById('linksCard').style.display = 'none';
 }
 
 // ── Status ────────────────────────────────────────────────────────────────────
@@ -52,7 +57,13 @@ socket.on('tiktok:status', ({ status, username, message }) => {
     showToast(`✅ متصل بـ @${username}`);
     showLinks(username);
   }
-  else if (status === 'disconnected') { setStatus('disconnected', 'غير متصل'); currentUsername = null; }
+  else if (status === 'disconnected') {
+    // Only reset if it's our current account (not old one during switch)
+    if (!currentUsername || username === currentUsername || username === '') {
+      setStatus('disconnected', 'غير متصل');
+      currentUsername = null;
+    }
+  }
   else if (status === 'connecting')   { setStatus('connecting', 'جاري الاتصال...'); }
   else if (status === 'error')        { setStatus('error', `❌ ${message}`); showToast(`❌ ${message}`); currentUsername = null; }
 });

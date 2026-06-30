@@ -3,8 +3,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const fs = require('fs');
 const WebSocket = require('ws');
+// BUG #1 FIXED: removed unused 'fs' import
 
 const app = express();
 const server = http.createServer(app);
@@ -13,11 +13,16 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// API: get active connected usernames
-app.get('/api/active', (_, res) => {
-  res.json({ usernames: [...connections.keys()] });
-});
-// No cache for HTML files
+// ── State (moved UP before routes that reference it) ──────────────────────────
+const connections = new Map(); // username -> { ws, stats, stopping }
+const wheelState = new Map();
+function getWheel(u) {
+  if (!wheelState.has(u)) wheelState.set(u, { keyword: 'اشتراك', entries: new Map(), accepting: false, winner: null });
+  return wheelState.get(u);
+}
+function roomOf(u) { return `room:${u}`; }
+
+// ── Middleware ─────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   if (req.path.endsWith('.html') || req.path === '/' || req.path === '/obs' || req.path === '/wheel' || req.path.startsWith('/overlay/')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -32,19 +37,21 @@ app.get('/',              (_, res) => res.sendFile(path.join(__dirname, 'public'
 app.get('/obs',           (_, res) => res.sendFile(path.join(__dirname, 'public', 'obs-generator.html')));
 app.get('/overlay/chat',  (_, res) => res.sendFile(path.join(__dirname, 'public', 'overlays', 'chat.html')));
 app.get('/overlay/wheel', (_, res) => res.sendFile(path.join(__dirname, 'public', 'overlays', 'wheel.html')));
-app.get('/wheel',          (_, res) => res.sendFile(path.join(__dirname, 'public', 'wheel.html')));
+app.get('/wheel',         (_, res) => res.sendFile(path.join(__dirname, 'public', 'wheel.html')));
 
-// ── API: Save tik.tools key at runtime ────────────────────────────────────────
+// ── Simple APIs ───────────────────────────────────────────────────────────────
+app.get('/api/active', (_, res) => {
+  res.json({ usernames: [...connections.keys()] });
+});
+
 app.post('/api/set-key', (req, res) => {
   const { key } = req.body;
-  if (!key || typeof key !== 'string' || key.trim().length < 10) {
-    return res.json({ ok: false, error: 'مفتاح غير صالح' });
-  }
+  if (!key || typeof key !== 'string' || key.trim().length < 10) return res.json({ ok: false, error: 'مفتاح غير صالح' });
   process.env.TIKTOOL_API_KEY = key.trim();
   res.json({ ok: true });
 });
 
-// ── Wheel REST API ─────────────────────────────────────────────────────────────
+// ── Wheel REST API ────────────────────────────────────────────────────────────
 app.get('/api/wheel/:username', (req, res) => {
   const key = req.params.username.toLowerCase().replace('@','').trim();
   const w = getWheel(key);
@@ -52,10 +59,9 @@ app.get('/api/wheel/:username', (req, res) => {
 });
 
 app.post('/api/wheel/config', (req, res) => {
-  const { username, keyword } = req.body;
-  const key = username?.toLowerCase().replace('@','').trim();
+  const key = req.body.username?.toLowerCase().replace('@','').trim();
   if (!key) return res.json({ ok: false });
-  getWheel(key).keyword = keyword || 'اشتراك';
+  getWheel(key).keyword = req.body.keyword || 'اشتراك';
   res.json({ ok: true, keyword: getWheel(key).keyword });
 });
 
@@ -108,18 +114,7 @@ app.post('/api/wheel/remove', (req, res) => {
   res.json({ ok: true });
 });
 
-// ── State ──────────────────────────────────────────────────────────────────────
-const connections = new Map(); // username -> { ws, stats, retryTimer }
-// Wheel state per username (Map-based entries like private project)
-const wheelState = new Map();
-function getWheel(u) {
-  if (!wheelState.has(u)) wheelState.set(u, { keyword: 'اشتراك', entries: new Map(), accepting: false, winner: null });
-  return wheelState.get(u);
-}
-
-function roomOf(u) { return `room:${u}`; }
-
-// ── Fetch current room stats via REST ──────────────────────────────────────────
+// ── Fetch current room stats via REST ─────────────────────────────────────────
 async function fetchRoomStats(username, apiKey) {
   try {
     const res = await fetch(`https://api.tik.tools/user/${encodeURIComponent(username)}/live?apiKey=${apiKey}`);
@@ -133,17 +128,18 @@ async function fetchRoomStats(username, apiKey) {
       };
     }
   } catch (e) {
-    console.log('[tik.tools] REST stats fetch error:', e.message);
+    console.log('[tik.tools] REST stats error:', e.message);
   }
   return null;
 }
 
 // ── tik.tools WebSocket Connection ────────────────────────────────────────────
+// BUG #2 FIXED: added `stopping` flag to prevent reconnect on manual disconnect
+// BUG #3 FIXED: added max retries (5) to prevent infinite reconnect loop
 async function connectTikTools(username, onEvent, onStatus, onReconnect) {
   const apiKey = process.env.TIKTOOL_API_KEY;
-  if (!apiKey) { onStatus('error', 'TIKTOOL_API_KEY غير موجود — أضفه من صفحة الإعدادات'); return null; }
+  if (!apiKey) { onStatus('error', 'TIKTOOL_API_KEY غير موجود'); return null; }
 
-  // Step 1: Get JWT token
   let wsUrl;
   try {
     const res = await fetch(`https://api.tik.tools/authentication/jwt?apiKey=${apiKey}`, {
@@ -156,11 +152,9 @@ async function connectTikTools(username, onEvent, onStatus, onReconnect) {
       wsUrl = `wss://api.tik.tools?uniqueId=${username}&jwtKey=${data.data.token}`;
       console.log(`[tik.tools] JWT obtained @${username}`);
     } else {
-      console.log(`[tik.tools] JWT failed, fallback @${username}:`, JSON.stringify(data));
       wsUrl = `wss://api.tik.tools?uniqueId=${username}&apiKey=${apiKey}`;
     }
   } catch (e) {
-    console.log(`[tik.tools] JWT error, fallback @${username}:`, e.message);
     wsUrl = `wss://api.tik.tools?uniqueId=${username}&apiKey=${apiKey}`;
   }
 
@@ -168,31 +162,34 @@ async function connectTikTools(username, onEvent, onStatus, onReconnect) {
 
   ws.on('open', () => {
     console.log(`[tik.tools] Connected @${username}`);
+    // Reset retry count on successful connect
+    const conn = connections.get(username);
+    if (conn) conn.retries = 0;
     onStatus('connected');
   });
 
   ws.on('message', (raw) => {
     const str = raw.toString();
-    // Ping/pong — must handle before JSON parse
-    if (str.includes('"ping"')) {
-      ws.send(JSON.stringify({ event: 'pong' }));
-      return;
-    }
-    try {
-      const msg = JSON.parse(str);
-      onEvent(msg);
-    } catch (_) {}
+    if (str.includes('"ping"')) { ws.send(JSON.stringify({ event: 'pong' })); return; }
+    try { onEvent(JSON.parse(str)); } catch (_) {}
   });
 
   ws.on('close', (code) => {
     console.log(`[tik.tools] Disconnected @${username} code=${code}`);
-    // Auto-reconnect on non-fatal codes (1005, 1006)
-    if ([1005, 1006].includes(code)) {
-      console.log(`[tik.tools] Auto-reconnecting @${username} in 5s...`);
-      onStatus('connecting', 'إعادة الاتصال...');
-      setTimeout(() => {
-        onReconnect && onReconnect();
-      }, 5000);
+    const conn = connections.get(username);
+
+    // BUG #2: Don't reconnect if manually stopped
+    if (conn?.stopping) {
+      onStatus('disconnected', 'manual');
+      return;
+    }
+
+    // BUG #3: Max 5 retries
+    if ([1005, 1006].includes(code) && conn && (conn.retries || 0) < 5) {
+      conn.retries = (conn.retries || 0) + 1;
+      console.log(`[tik.tools] Reconnecting @${username} (${conn.retries}/5) in 5s...`);
+      onStatus('connecting', `إعادة الاتصال (${conn.retries}/5)...`);
+      setTimeout(() => onReconnect && onReconnect(), 5000);
     } else {
       onStatus('disconnected', `code ${code}`);
     }
@@ -213,8 +210,6 @@ function parseTikToolsEvent(msg, username, socket) {
   const { stats } = conn;
   const ev = msg.event;
   const data = msg.data || {};
-
-  // Helper — user info nested under data.user in tik.tools
   const u = (d) => d.user || d;
 
   if (ev === 'chat') {
@@ -229,7 +224,7 @@ function parseTikToolsEvent(msg, username, socket) {
     socket.emit('tiktok:chat', payload);
     io.to(roomOf(username)).emit('chat', payload);
 
-    // Wheel: server-side registration (if accepting + keyword match)
+    // Wheel registration
     const wh = getWheel(username);
     if (wh.accepting && wh.keyword && (data.comment || '').includes(wh.keyword)) {
       const uid = user.uniqueId;
@@ -243,15 +238,12 @@ function parseTikToolsEvent(msg, username, socket) {
   else if (ev === 'gift') {
     if (data.giftType === 1 && !data.repeatEnd) return;
     const user = u(data);
-    const diamonds = (data.diamondCount || 0) * (data.repeatCount || 1);
-    stats.diamonds += diamonds;
+    stats.diamonds += (data.diamondCount || 0) * (data.repeatCount || 1);
     const payload = {
       user: user.nickname || user.uniqueId,
       avatar: user.profilePicture?.url?.[0] || user.profilePictureUrl,
-      giftName: data.giftName,
-      giftImageUrl: data.giftPictureUrl,
-      repeatCount: data.repeatCount || 1,
-      diamondCount: data.diamondCount || 0,
+      giftName: data.giftName, giftImageUrl: data.giftPictureUrl,
+      repeatCount: data.repeatCount || 1, diamondCount: data.diamondCount || 0,
       uniqueId: user.uniqueId,
     };
     socket.emit('tiktok:gift', payload);
@@ -260,25 +252,21 @@ function parseTikToolsEvent(msg, username, socket) {
   }
 
   else if (ev === 'like') {
-    // Use totalLikeCount (absolute) if available, otherwise increment
     if (data.totalLikeCount) stats.likes = data.totalLikeCount;
     else stats.likes += (data.likeCount || 1);
     emitStats(username, socket);
   }
 
   else if (ev === 'roomUser' || ev === 'roomUserSeq' || ev === 'viewerCount' || ev === 'viewer' || ev === 'liveInfo') {
-    const vc = data.viewerCount || data.totalViewers || data.viewer_count || data.count || null;
+    const vc = data.viewerCount || data.totalViewers || data.count || null;
     if (vc !== null) stats.viewers = vc;
     emitStats(username, socket);
   }
 
   else if (ev === 'roomInfo') {
-    // Initial room data — extract likes, viewers, etc.
     if (data.likeCount) stats.likes = data.likeCount;
-    if (data.viewerCount) stats.viewers = data.viewerCount;
-    if (data.totalViewers) stats.viewers = data.totalViewers;
+    if (data.viewerCount || data.totalViewers) stats.viewers = data.viewerCount || data.totalViewers;
     if (data.shareCount) stats.shares = data.shareCount;
-    if (data.followCount) stats.followers = data.followCount;
     emitStats(username, socket);
   }
 
@@ -302,19 +290,14 @@ function parseTikToolsEvent(msg, username, socket) {
 
   else if (ev === 'social' || data.type === 'social') {
     const user = u(data);
-    const displayType = data.displayType || data.display_type || '';
+    const displayType = String(data.displayType || data.display_type || '');
     const action = data.action || data.event_sub_type || 0;
-    const label = data.label || '';
+    const label = String(data.label || '');
 
-    // Log full social event for debugging (remove later)
-    console.log('[tik.tools] SOCIAL:', JSON.stringify({ displayType, action, label, nickname: user.nickname, uniqueId: user.uniqueId }));
+    console.log('[tik.tools] SOCIAL:', JSON.stringify({ displayType, action, label, nickname: user.nickname }));
 
-    // Differentiate: share vs follow
-    const isShare = displayType.toString().includes('share')
-      || label.toLowerCase().includes('share')
-      || action === 3 || action === '3'
-      || displayType === 'pm_mt_msg_viewer_share'
-      || displayType === 'pm_mt_guidance_share_2';
+    const isShare = displayType.includes('share') || label.includes('share')
+      || action === 3 || action === '3';
 
     if (isShare) {
       stats.shares++;
@@ -335,19 +318,15 @@ function parseTikToolsEvent(msg, username, socket) {
     const payload = {
       user: user.nickname || user.uniqueId,
       avatar: user.profilePicture?.url?.[0] || user.profilePictureUrl,
-      actionId: 1,
       uniqueId: user.uniqueId,
     };
     socket.emit('tiktok:member', payload);
     io.to(roomOf(username)).emit('member', payload);
   }
 
-  // Debug: log social/follow/share for troubleshooting
-  // (remove these lines once confirmed working)
-
-  // Log unknown events (must be LAST in the chain)
+  // Ignore known noisy events
   else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','emote','envelope','subscribe','linkMicBattle','linkMicArmies','giftDynamicRestriction','shareRevenueNotice','linkMicLayout','linkMicMethod','fanTicket','giftPanelUpdate','controlMessage','msgDetect','toast','liveIntro','perception','systemMessage','linkMicPermission','linkMic','linkLayer','link','commentTray','barrage','aiSummary','room','streamStatus','questionNew','imDelete','oecLive','rankUpdate','rankText','hourlyRank','topFans','caption','subNotify','pollMessage','goalkeeperUpdate','unauthorized'].includes(ev)) {
-    console.log('[tik.tools] Unknown event:', ev, JSON.stringify(data).substring(0, 200));
+    console.log('[tik.tools] Unknown:', ev);
   }
 }
 
@@ -358,27 +337,27 @@ function emitStats(username, socket) {
   io.to(roomOf(username)).emit('stats', s);
 }
 
-// ── Socket.IO ──────────────────────────────────────────────────────────────────
+// ── Socket.IO ─────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
 
   socket.on('tiktok:connect', async ({ username }) => {
     if (!username) return;
     const u = username.replace('@', '').trim().toLowerCase();
 
-    // Disconnect ALL existing connections (not just same username)
+    // Disconnect ALL existing — mark as stopping to prevent reconnect
     for (const [key, conn] of connections) {
+      conn.stopping = true;  // BUG #2: flag prevents auto-reconnect
       try { conn.ws?.close(); } catch (_) {}
       connections.delete(key);
-      io.emit('tiktok:status', { status: 'disconnected', username: key });
     }
 
     socket.emit('tiktok:status', { status: 'connecting', username: u });
 
     const stats = { viewers: 0, likes: 0, diamonds: 0, shares: 0, followers: 0 };
-    const conn = { ws: null, stats };
+    const conn = { ws: null, stats, stopping: false, retries: 0 };
     connections.set(u, conn);
 
-    // Fetch current stats via REST API first
+    // Fetch initial stats
     const apiKey = process.env.TIKTOOL_API_KEY;
     if (apiKey) {
       const roomStats = await fetchRoomStats(u, apiKey);
@@ -391,22 +370,24 @@ io.on('connection', (socket) => {
     }
 
     async function doConnect() {
+      // Don't reconnect if stopped
+      if (conn.stopping) return;
+
       const ws = await connectTikTools(u,
         (msg) => parseTikToolsEvent(msg, u, socket),
         (status, message) => {
-          socket.emit('tiktok:status', { status, username: u, message });
+          // BUG #4 FIXED: only emit once via io.emit (not socket.emit + io.emit)
           io.emit('tiktok:status', { status, username: u, message });
           if (status === 'connected') {
-          io.to(roomOf(u)).emit('overlay:status', { connected: true });
-          // Send initial stats immediately
-          emitStats(u, socket);
-        }
+            io.to(roomOf(u)).emit('overlay:status', { connected: true });
+            emitStats(u, socket);
+          }
           if (status === 'disconnected' || status === 'error') {
             io.to(roomOf(u)).emit('overlay:status', { connected: false });
             connections.delete(u);
           }
         },
-        () => doConnect() // reconnect callback
+        () => doConnect()
       );
       if (ws) {
         conn.ws = ws;
@@ -414,23 +395,30 @@ io.on('connection', (socket) => {
       }
     }
     await doConnect();
-
   });
 
   socket.on('tiktok:disconnect', ({ username }) => {
     const u = username?.replace('@', '').trim().toLowerCase();
-    if (connections.has(u)) {
-      try { connections.get(u).ws?.close(); } catch (_) {}
+    // Mark as stopping BEFORE closing — prevents auto-reconnect
+    if (u && connections.has(u)) {
+      const conn = connections.get(u);
+      conn.stopping = true;  // BUG #2: this prevents the close handler from reconnecting
+      try { conn.ws?.close(); } catch (_) {}
       connections.delete(u);
+    } else {
+      for (const [key, conn] of connections) {
+        conn.stopping = true;
+        try { conn.ws?.close(); } catch (_) {}
+        connections.delete(key);
+      }
     }
-    socket.emit('tiktok:status', { status: 'disconnected', username: u });
+    io.emit('tiktok:status', { status: 'disconnected', username: u || '' });
+    console.log('[Server] Disconnected @' + (u || 'all'));
   });
 
-  // Overlay joins room
+  // Overlay/wheel joins room
   socket.on('join',         ({ username }) => { const u = (username||'').replace('@','').trim().toLowerCase(); if (u) socket.join(roomOf(u)); });
   socket.on('overlay:join', ({ username }) => { const u = (username||'').replace('@','').trim().toLowerCase(); if (u) socket.join(roomOf(u)); });
-
-  // Wheel is now handled via REST API (see /api/wheel/*)
 });
 
 server.listen(PORT, () => console.log(`✅ Server → http://localhost:${PORT}`));
