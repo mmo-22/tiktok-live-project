@@ -36,12 +36,76 @@ app.post('/api/set-key', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Wheel REST API ─────────────────────────────────────────────────────────────
+app.get('/api/wheel/:username', (req, res) => {
+  const key = req.params.username.toLowerCase().replace('@','').trim();
+  const w = getWheel(key);
+  res.json({ keyword: w.keyword, accepting: w.accepting, entries: Array.from(w.entries.values()), count: w.entries.size, winner: w.winner });
+});
+
+app.post('/api/wheel/config', (req, res) => {
+  const { username, keyword } = req.body;
+  const key = username?.toLowerCase().replace('@','').trim();
+  if (!key) return res.json({ ok: false });
+  getWheel(key).keyword = keyword || 'اشتراك';
+  res.json({ ok: true, keyword: getWheel(key).keyword });
+});
+
+app.post('/api/wheel/open', (req, res) => {
+  const key = req.body.username?.toLowerCase().replace('@','').trim();
+  if (!key) return res.json({ ok: false });
+  getWheel(key).accepting = true;
+  io.to(roomOf(key)).emit('wheel:status', { accepting: true, keyword: getWheel(key).keyword });
+  res.json({ ok: true });
+});
+
+app.post('/api/wheel/close', (req, res) => {
+  const key = req.body.username?.toLowerCase().replace('@','').trim();
+  if (!key) return res.json({ ok: false });
+  getWheel(key).accepting = false;
+  io.to(roomOf(key)).emit('wheel:status', { accepting: false });
+  res.json({ ok: true });
+});
+
+app.post('/api/wheel/spin', (req, res) => {
+  const key = req.body.username?.toLowerCase().replace('@','').trim();
+  if (!key) return res.json({ ok: false });
+  const w = getWheel(key);
+  const entries = Array.from(w.entries.values());
+  if (entries.length < 2) return res.json({ ok: false, message: 'يحتاج مشتركين أكثر' });
+  w.accepting = false;
+  const winner = entries[Math.floor(Math.random() * entries.length)];
+  w.winner = winner;
+  io.to(roomOf(key)).emit('wheel:spin', { winner, entries });
+  io.to(roomOf(key)).emit('wheel:status', { accepting: false });
+  res.json({ ok: true, winner });
+});
+
+app.post('/api/wheel/clear', (req, res) => {
+  const key = req.body.username?.toLowerCase().replace('@','').trim();
+  if (!key) return res.json({ ok: false });
+  const w = getWheel(key);
+  w.entries.clear(); w.winner = null;
+  io.to(roomOf(key)).emit('wheel:update', { entries: [], count: 0 });
+  res.json({ ok: true });
+});
+
+app.post('/api/wheel/remove', (req, res) => {
+  const { username, uniqueId } = req.body;
+  const key = username?.toLowerCase().replace('@','').trim();
+  if (!key) return res.json({ ok: false });
+  const w = getWheel(key);
+  w.entries.delete(uniqueId);
+  io.to(roomOf(key)).emit('wheel:update', { entries: Array.from(w.entries.values()), count: w.entries.size });
+  res.json({ ok: true });
+});
+
 // ── State ──────────────────────────────────────────────────────────────────────
 const connections = new Map(); // username -> { ws, stats, retryTimer }
-// Wheel state per username
-const wheelState = new Map(); // username -> { keyword, entries, winner }
+// Wheel state per username (Map-based entries like private project)
+const wheelState = new Map();
 function getWheel(u) {
-  if (!wheelState.has(u)) wheelState.set(u, { keyword: 'اشتراك', entries: [], winner: null });
+  if (!wheelState.has(u)) wheelState.set(u, { keyword: 'اشتراك', entries: new Map(), accepting: false, winner: null });
   return wheelState.get(u);
 }
 
@@ -137,7 +201,16 @@ function parseTikToolsEvent(msg, username, socket) {
     };
     socket.emit('tiktok:chat', payload);
     io.to(roomOf(username)).emit('chat', payload);
-    // Wheel registration is handled client-side (wheel page checks keyword + registration state)
+
+    // Wheel: server-side registration (if accepting + keyword match)
+    const wh = getWheel(username);
+    if (wh.accepting && wh.keyword && (data.comment || '').includes(wh.keyword)) {
+      const uid = user.uniqueId;
+      if (!wh.entries.has(uid)) {
+        wh.entries.set(uid, { uniqueId: uid, nickname: payload.user, profilePicture: payload.avatar });
+        io.to(roomOf(username)).emit('wheel:update', { entries: Array.from(wh.entries.values()), count: wh.entries.size });
+      }
+    }
   }
 
   else if (ev === 'gift') {
@@ -188,21 +261,13 @@ function parseTikToolsEvent(msg, username, socket) {
     emitStats(username, socket);
   }
 
-  else if (ev === 'social') {
-    // tik.tools sends follow/share as 'social' with displayType
+  else if (ev === 'social' || data.type === 'social') {
+    // In tik.tools, social event = follow
     const user = u(data);
-    const action = data.displayType || data.action || '';
-    if (action === 'follow' || data.label?.includes('follow')) {
-      stats.followers++;
-      socket.emit('tiktok:follow', { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId });
-      io.to(roomOf(username)).emit('follow', { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId });
-    } else if (action === 'share' || data.label?.includes('share')) {
-      stats.shares++;
-      socket.emit('tiktok:share', { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId });
-      io.to(roomOf(username)).emit('share', { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId });
-    } else {
-      console.log('[tik.tools] social event:', JSON.stringify(data).substring(0, 300));
-    }
+    stats.followers++;
+    const payload = { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId };
+    socket.emit('tiktok:follow', payload);
+    io.to(roomOf(username)).emit('follow', payload);
     emitStats(username, socket);
   }
 
@@ -222,7 +287,7 @@ function parseTikToolsEvent(msg, username, socket) {
   // (remove these lines once confirmed working)
 
   // Log unknown events (must be LAST in the chain)
-  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','roomInfo','emote','envelope','subscribe','linkMicBattle','linkMicArmies','giftDynamicRestriction','shareRevenueNotice','linkMicLayout','fanTicket','giftPanelUpdate','linkMicMethod','controlMessage','msgDetect','toast','liveIntro','perception','systemMessage','linkMicPermission'].includes(ev)) {
+  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','roomInfo','emote','envelope','subscribe','linkMicBattle','linkMicArmies','giftDynamicRestriction','shareRevenueNotice','linkMicLayout','linkMicMethod','fanTicket','giftPanelUpdate','controlMessage','msgDetect','toast','liveIntro','perception','systemMessage','linkMicPermission','linkMic','linkLayer','link','commentTray','barrage','aiSummary','room','streamStatus','questionNew','imDelete','oecLive','rankUpdate','rankText','hourlyRank','topFans','caption','subNotify','pollMessage','goalkeeperUpdate','unauthorized'].includes(ev)) {
     console.log('[tik.tools] Unknown event:', ev, JSON.stringify(data).substring(0, 200));
   }
 }
@@ -289,63 +354,7 @@ io.on('connection', (socket) => {
   socket.on('join',         ({ username }) => { const u = (username||'').replace('@','').trim().toLowerCase(); if (u) socket.join(roomOf(u)); });
   socket.on('overlay:join', ({ username }) => { const u = (username||'').replace('@','').trim().toLowerCase(); if (u) socket.join(roomOf(u)); });
 
-  // Wheel — per-username state
-  socket.on('wheel:join', ({ username }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    if (u) socket.join(`wheel:${u}`);
-  });
-
-  socket.on('wheel:getState', ({ username }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    const w = getWheel(u);
-    socket.emit('wheel:state', { keyword: w.keyword, entries: w.entries, winner: w.winner });
-  });
-
-  socket.on('wheel:setKeyword', ({ username, keyword }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    getWheel(u).keyword = keyword;
-  });
-
-  socket.on('wheel:updateEntries', ({ username, entries }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    getWheel(u).entries = entries || [];
-    io.to(`wheel:${u}`).emit('wheel:updateEntries', { username: u, entries: getWheel(u).entries });
-  });
-
-  socket.on('wheel:removeEntry', ({ username, uniqueId }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    const w = getWheel(u);
-    w.entries = w.entries.filter(e => e.uniqueId !== uniqueId);
-    io.to(`wheel:${u}`).emit('wheel:updateEntries', { username: u, entries: w.entries });
-  });
-
-  socket.on('wheel:spin', ({ username, winner, entries }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    const w = getWheel(u);
-    if (entries) w.entries = entries;
-    w.winner = winner;
-    io.to(`wheel:${u}`).emit('wheel:spin', { username: u, winner, entries: w.entries });
-  });
-
-  socket.on('wheel:result', ({ username, winner }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    getWheel(u).winner = winner;
-    io.to(`wheel:${u}`).emit('wheel:result', { username: u, winner });
-  });
-
-  socket.on('wheel:reset', ({ username }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    getWheel(u).winner = null;
-    io.to(`wheel:${u}`).emit('wheel:reset', { username: u });
-  });
-
-  socket.on('wheel:clear', ({ username }) => {
-    const u = (username||'').replace('@','').trim().toLowerCase();
-    const w = getWheel(u);
-    w.entries = []; w.winner = null;
-    io.to(`wheel:${u}`).emit('wheel:updateEntries', { username: u, entries: [] });
-    io.to(`wheel:${u}`).emit('wheel:clear', { username: u });
-  });
+  // Wheel is now handled via REST API (see /api/wheel/*)
 });
 
 server.listen(PORT, () => console.log(`✅ Server → http://localhost:${PORT}`));
