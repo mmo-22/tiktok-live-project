@@ -215,13 +215,30 @@ async function saveKeyword() {
 
 async function toggleReg() {
   if (!username) { toast('اتصل بحساب أولاً'); return; }
+  const newState = !accepting;
+  const endpoint = newState ? '/api/wheel/open' : '/api/wheel/close';
+
+  // Update UI immediately
+  accepting = newState;
+  updateRegUI();
+
   try {
-    if (accepting) await api('/api/wheel/close');
-    else await api('/api/wheel/open');
-    accepting = !accepting;
+    const res = await api(endpoint);
+    if (!res.ok) {
+      // Revert if server rejected
+      accepting = !newState;
+      updateRegUI();
+      toast('❌ فشل');
+      return;
+    }
+  } catch(e) {
+    accepting = !newState;
     updateRegUI();
-    toast(accepting ? '🟢 التسجيل مفتوح' : '⛔ التسجيل مغلق');
-  } catch(e) { toast('❌ خطأ'); }
+    toast('❌ خطأ في الاتصال');
+    return;
+  }
+
+  toast(accepting ? '🟢 التسجيل مفتوح' : '⛔ التسجيل مغلق');
 }
 
 async function spin() {

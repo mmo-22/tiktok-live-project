@@ -301,12 +301,32 @@ function parseTikToolsEvent(msg, username, socket) {
   }
 
   else if (ev === 'social' || data.type === 'social') {
-    // In tik.tools, social event = follow
     const user = u(data);
-    stats.followers++;
-    const payload = { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId };
-    socket.emit('tiktok:follow', payload);
-    io.to(roomOf(username)).emit('follow', payload);
+    const displayType = data.displayType || data.display_type || '';
+    const action = data.action || data.event_sub_type || 0;
+    const label = data.label || '';
+
+    // Log full social event for debugging (remove later)
+    console.log('[tik.tools] SOCIAL:', JSON.stringify({ displayType, action, label, nickname: user.nickname, uniqueId: user.uniqueId }));
+
+    // Differentiate: share vs follow
+    const isShare = displayType.toString().includes('share')
+      || label.toLowerCase().includes('share')
+      || action === 3 || action === '3'
+      || displayType === 'pm_mt_msg_viewer_share'
+      || displayType === 'pm_mt_guidance_share_2';
+
+    if (isShare) {
+      stats.shares++;
+      const payload = { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId };
+      socket.emit('tiktok:share', payload);
+      io.to(roomOf(username)).emit('share', payload);
+    } else {
+      stats.followers++;
+      const payload = { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId };
+      socket.emit('tiktok:follow', payload);
+      io.to(roomOf(username)).emit('follow', payload);
+    }
     emitStats(username, socket);
   }
 
