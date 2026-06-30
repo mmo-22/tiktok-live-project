@@ -134,6 +134,7 @@ async function init() {
     document.getElementById('kwInput').value = d.keyword || 'اشتراك';
     if (d.winner) showWinner(d.winner);
     updateUI();
+    updateRegUI();
   } catch(_){}
 }
 
@@ -166,6 +167,7 @@ async function api(path, body) {
 }
 
 async function saveKeyword() {
+  if (!username) { toast('اتصل بحساب أولاً'); return; }
   const kw = document.getElementById('kwInput').value.trim();
   if (!kw) return;
   await api('/api/wheel/config', { keyword: kw });
@@ -173,14 +175,18 @@ async function saveKeyword() {
 }
 
 async function toggleReg() {
-  if (accepting) { await api('/api/wheel/close'); }
-  else { await api('/api/wheel/open'); }
-  accepting = !accepting;
-  updateRegUI();
-  toast(accepting ? '🟢 التسجيل مفتوح' : '⛔ التسجيل مغلق');
+  if (!username) { toast('اتصل بحساب أولاً من لوحة التحكم'); return; }
+  try {
+    if (accepting) { await api('/api/wheel/close'); }
+    else { await api('/api/wheel/open'); }
+    accepting = !accepting;
+    updateRegUI();
+    toast(accepting ? '🟢 التسجيل مفتوح' : '⛔ التسجيل مغلق');
+  } catch(e) { toast('❌ خطأ في الاتصال'); }
 }
 
 async function spin() {
+  if (!username) { toast('اتصل بحساب أولاً'); return; }
   if (spinning) return;
   if (entries.length < 2) { toast('يحتاج مشتركين أكثر'); return; }
   spinning = true;
@@ -276,10 +282,12 @@ function drawWheel(a) {
 function doSpinAnimation(winner) {
   const winnerIdx = entries.findIndex(e => e.uniqueId === winner?.uniqueId);
   if (winnerIdx < 0) { spinning = false; document.getElementById('spinBtn').disabled = false; return; }
-  const slice = Math.PI*2/entries.length;
-  const winnerMid = winnerIdx*slice + slice/2;
-  const extra = Math.PI*2*(6+Math.random()*3);
-  const target = angle + extra + (Math.PI*1.5 - winnerMid - (angle%(Math.PI*2)));
+  const slice = (Math.PI*2) / entries.length;
+  const winnerCenter = winnerIdx * slice + slice / 2;
+  const finalAngle = -Math.PI/2 - winnerCenter;
+  let needed = finalAngle - angle;
+  needed = ((needed % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+  const target = angle + Math.PI*2*7 + needed;
   const startA = angle, startT = performance.now(), dur = 5000;
   document.getElementById('winnerBox').style.display = 'none';
 

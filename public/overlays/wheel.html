@@ -6,46 +6,62 @@
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:transparent;font-family:'Tajawal',sans-serif;width:100vw;height:100vh;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.reg-banner{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(6,6,11,0.9);border:1px solid rgba(34,197,94,0.4);border-radius:16px;padding:12px 24px;display:none;align-items:center;gap:12px;z-index:10;animation:slideDown .4s ease}
-.reg-banner.show{display:flex}
+body{background:transparent;font-family:'Tajawal',sans-serif;width:100vw;height:100vh;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+
+/* Registration banner — above wheel centered */
+.reg-area{display:none;flex-direction:column;align-items:center;gap:6px;margin-bottom:14px;animation:fadeDown .4s ease}
+.reg-area.show{display:flex}
+.reg-banner{background:rgba(6,6,11,0.9);border:1px solid rgba(34,197,94,0.4);border-radius:16px;padding:10px 24px;display:flex;align-items:center;gap:10px}
 .reg-dot{width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite}
 .reg-text{font-size:15px;font-weight:700;color:#e2e8f0}
 .reg-kw{color:#22d3ee;font-weight:800}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-@keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.reg-count{font-size:13px;font-weight:700;color:#22d3ee;background:rgba(8,145,178,0.15);border:1px solid rgba(34,211,238,0.2);border-radius:10px;padding:4px 16px}
 
-.wrap{position:relative;width:500px;height:500px}
+/* Wheel container */
+.wheel-container{position:relative;width:500px;height:500px}
 canvas{border-radius:50%;display:block}
 .ptr{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:34px;color:#f5c542;text-shadow:0 3px 14px rgba(0,0,0,.9);z-index:2}
 
-.winner-banner{position:fixed;bottom:44px;left:50%;transform:translateX(-50%) translateY(30px);background:rgba(6,6,11,0.93);border:2px solid #f5c542;border-radius:22px;padding:18px 30px;display:flex;align-items:center;gap:16px;opacity:0;transition:all .5s cubic-bezier(.34,1.56,.64,1);pointer-events:none;min-width:260px}
-.winner-banner.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.winner-banner img,.w-ph{width:54px;height:54px;border-radius:50%;border:2px solid #f5c542;object-fit:cover;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;background:#0891b2}
-.w-lbl{font-size:12px;color:#f5c542;font-weight:700;margin-bottom:3px}.w-name{font-size:22px;color:#fff;font-weight:800}
-.count-badge{position:fixed;top:20px;right:20px;background:rgba(6,6,11,0.85);border:1px solid rgba(34,211,238,0.3);border-radius:12px;padding:8px 16px;font-size:14px;font-weight:700;color:#22d3ee;display:none;z-index:10}
-.count-badge.show{display:block}
+/* Winner — centered over the wheel */
+.winner-center{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  background:rgba(6,6,11,0.92);border:2px solid #f5c542;border-radius:50%;
+  width:180px;height:180px;justify-content:center;
+  z-index:10;transition:transform .5s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 0 40px rgba(245,197,66,0.3);
+}
+.winner-center.show{transform:translate(-50%,-50%) scale(1)}
+.winner-center img{width:60px;height:60px;border-radius:50%;border:3px solid #f5c542;object-fit:cover}
+.winner-center .w-ph{width:60px;height:60px;border-radius:50%;border:3px solid #f5c542;background:#0891b2;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff}
+.winner-center .w-crown{font-size:18px;color:#f5c542;margin-bottom:-4px}
+.winner-center .w-name{font-size:16px;font-weight:800;color:#fff;text-align:center;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
 
-<div class="reg-banner" id="regBanner">
-  <div class="reg-dot"></div>
-  <div class="reg-text">التسجيل مفتوح — اكتب <span class="reg-kw" id="regKw">اشتراك</span></div>
+<!-- Registration + count above wheel -->
+<div class="reg-area" id="regArea">
+  <div class="reg-banner">
+    <div class="reg-dot"></div>
+    <div class="reg-text">التسجيل مفتوح — اكتب <span class="reg-kw" id="regKw">اشتراك</span></div>
+  </div>
+  <div class="reg-count" id="regCount">0 مشارك</div>
 </div>
 
-<div class="count-badge" id="countBadge">0 مشارك</div>
-
-<div class="wrap">
+<!-- Wheel -->
+<div class="wheel-container">
   <div class="ptr">▼</div>
   <canvas id="c" width="500" height="500"></canvas>
-</div>
 
-<div class="winner-banner" id="banner">
-  <div id="bannerAv"></div>
-  <div>
-    <div class="w-lbl">🏆 الفائز</div>
-    <div class="w-name" id="bannerName"></div>
+  <!-- Winner in center of wheel -->
+  <div class="winner-center" id="winnerCenter">
+    <div class="w-crown">🏆</div>
+    <div id="winnerAv"></div>
+    <div class="w-name" id="winnerName"></div>
   </div>
 </div>
 
@@ -64,17 +80,17 @@ const socket = io({ transports:['websocket','polling'] });
 
 async function init() {
   if (!username) {
-    try { const r = await fetch('/api/active'); const d = await r.json(); username = d.usernames?.[0] || ''; } catch(_){}
+    try { const r = await fetch('/api/active'); const d = await r.json(); username = d.usernames?.[0]||''; } catch(_){}
   }
   if (username) {
     socket.emit('join', { username });
     try {
       const r = await fetch(`/api/wheel/${username}`);
       const d = await r.json();
-      entries = d.entries || [];
+      entries = d.entries||[];
       if (d.accepting) showReg(d.keyword);
-      draw(angle);
       updateCount();
+      draw(angle);
     } catch(_){}
   }
 }
@@ -82,73 +98,95 @@ async function init() {
 socket.on('connect', () => { if (username) socket.emit('join', { username }); });
 socket.on('reconnect', () => { if (username) socket.emit('join', { username }); });
 
-socket.on('wheel:update', (d) => {
-  entries = d.entries || [];
-  draw(angle);
-  updateCount();
-});
+socket.on('wheel:update', d => { entries = d.entries||[]; updateCount(); draw(angle); });
 
-socket.on('wheel:spin', (d) => {
+socket.on('wheel:spin', d => {
   if (d.entries) entries = d.entries;
+  updateCount();
   draw(angle);
-  hideBanner();
+  hideWinner();
+
   const idx = entries.findIndex(e => e.uniqueId === d.winner?.uniqueId);
   if (idx < 0) return;
-  const slice = Math.PI*2/entries.length;
-  const mid = idx*slice + slice/2;
-  const extra = Math.PI*2*(6+Math.random()*3);
-  const target = angle + extra + (Math.PI*1.5 - mid - (angle%(Math.PI*2)));
-  animateSpin(target, 5000, () => showBanner(d.winner));
+
+  // Correct angle calculation
+  const slice = (Math.PI*2) / entries.length;
+  const winnerCenter = idx * slice + slice / 2;
+  const finalAngle = -Math.PI/2 - winnerCenter;
+  let needed = finalAngle - angle;
+  needed = ((needed % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+  const target = angle + Math.PI*2*7 + needed;
+
+  animateSpin(target, 5000, () => showWinner(d.winner));
 });
 
-socket.on('wheel:status', (d) => {
+socket.on('wheel:status', d => {
   if (d.accepting) showReg(d.keyword);
   else hideReg();
 });
 
+// ── Draw ──────────────────────────────────────────────────
 function draw(a) {
   ctx.clearRect(0,0,W,H);
   if (!entries.length) {
     ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
     ctx.fillStyle='rgba(13,13,20,0.5)'; ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=2; ctx.stroke(); return;
+    ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=2; ctx.stroke();
+    return;
   }
   const slice=Math.PI*2/entries.length;
   entries.forEach((e,i)=>{
-    const s=a+i*slice,en=s+slice;
-    ctx.beginPath();ctx.moveTo(CX,CY);ctx.arc(CX,CY,R,s,en);ctx.closePath();
-    ctx.fillStyle=COLORS[i%COLORS.length];ctx.fill();
-    ctx.strokeStyle='#06060b';ctx.lineWidth=2;ctx.stroke();
-    ctx.save();ctx.translate(CX,CY);ctx.rotate(s+slice/2);
-    ctx.textAlign='right';ctx.fillStyle='#fff';
+    const s=a+i*slice, en=s+slice;
+    ctx.beginPath(); ctx.moveTo(CX,CY); ctx.arc(CX,CY,R,s,en); ctx.closePath();
+    ctx.fillStyle=COLORS[i%COLORS.length]; ctx.fill();
+    ctx.strokeStyle='#06060b'; ctx.lineWidth=2; ctx.stroke();
+    ctx.save(); ctx.translate(CX,CY); ctx.rotate(s+slice/2);
+    ctx.textAlign='right'; ctx.fillStyle='#fff';
     ctx.font=`bold ${entries.length>20?10:entries.length>10?12:15}px Tajawal`;
-    ctx.shadowColor='rgba(0,0,0,0.5)';ctx.shadowBlur=4;
-    ctx.fillText((e.nickname||e.uniqueId||'').substring(0,14),R-12,6);
+    ctx.shadowColor='rgba(0,0,0,0.5)'; ctx.shadowBlur=4;
+    ctx.fillText((e.nickname||e.uniqueId||'').substring(0,14), R-12, 6);
     ctx.restore();
   });
-  ctx.beginPath();ctx.arc(CX,CY,18,0,Math.PI*2);ctx.fillStyle='#06060b';ctx.fill();ctx.strokeStyle='#22d3ee';ctx.lineWidth=3;ctx.stroke();
+  // Center circle
+  ctx.beginPath(); ctx.arc(CX,CY,22,0,Math.PI*2);
+  ctx.fillStyle='#06060b'; ctx.fill();
+  ctx.strokeStyle='#22d3ee'; ctx.lineWidth=3; ctx.stroke();
 }
 
-function animateSpin(target,dur,cb){const s=performance.now(),sa=angle;function step(n){const p=Math.min((n-s)/dur,1);const e=1-Math.pow(1-p,4);angle=sa+(target-sa)*e;draw(angle);if(p<1)requestAnimationFrame(step);else{angle=target;draw(angle);cb&&cb()}}requestAnimationFrame(step)}
-
-function showBanner(w){
-  const av=w.profilePicture?`<img src="${w.profilePicture}" onerror="this.style.display='none'">`:`<div class="w-ph">${(w.nickname||'?')[0]}</div>`;
-  document.getElementById('bannerAv').innerHTML=av;
-  document.getElementById('bannerName').textContent=w.nickname||w.uniqueId||'';
-  document.getElementById('banner').classList.add('show');
+function animateSpin(target,dur,cb){
+  const sa=angle, st=performance.now();
+  function step(n){
+    const p=Math.min((n-st)/dur,1);
+    const ease=1-Math.pow(1-p,4);
+    angle=sa+(target-sa)*ease;
+    draw(angle);
+    if(p<1) requestAnimationFrame(step);
+    else{angle=target;draw(angle);cb&&cb()}
+  }
+  requestAnimationFrame(step);
 }
-function hideBanner(){document.getElementById('banner').classList.remove('show')}
 
-function showReg(kw){
-  document.getElementById('regKw').textContent=kw||'اشتراك';
-  document.getElementById('regBanner').classList.add('show');
+// ── Winner in center ──────────────────────────────────────
+function showWinner(w) {
+  const av = w.profilePicture
+    ? `<img src="${w.profilePicture}" onerror="this.style.display='none'">`
+    : `<div class="w-ph">${(w.nickname||'?')[0]}</div>`;
+  document.getElementById('winnerAv').innerHTML = av;
+  document.getElementById('winnerName').textContent = w.nickname || w.uniqueId || '';
+  document.getElementById('winnerCenter').classList.add('show');
 }
-function hideReg(){document.getElementById('regBanner').classList.remove('show')}
+function hideWinner() {
+  document.getElementById('winnerCenter').classList.remove('show');
+}
 
-function updateCount(){
-  const b=document.getElementById('countBadge');
-  b.textContent=entries.length+' مشارك';
-  b.classList.toggle('show',entries.length>0);
+// ── Registration ──────────────────────────────────────────
+function showReg(kw) {
+  document.getElementById('regKw').textContent = kw||'اشتراك';
+  document.getElementById('regArea').classList.add('show');
+}
+function hideReg() { document.getElementById('regArea').classList.remove('show'); }
+function updateCount() {
+  document.getElementById('regCount').textContent = entries.length + ' مشارك';
 }
 
 draw(0);

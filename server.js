@@ -17,6 +17,14 @@ app.use(express.json());
 app.get('/api/active', (_, res) => {
   res.json({ usernames: [...connections.keys()] });
 });
+// No cache for HTML files
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/' || req.path === '/obs' || req.path === '/wheel' || req.path.startsWith('/overlay/')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
@@ -110,6 +118,25 @@ function getWheel(u) {
 }
 
 function roomOf(u) { return `room:${u}`; }
+
+// ── Fetch current room stats via REST ──────────────────────────────────────────
+async function fetchRoomStats(username, apiKey) {
+  try {
+    const res = await fetch(`https://api.tik.tools/user/${encodeURIComponent(username)}/live?apiKey=${apiKey}`);
+    const data = await res.json();
+    if (data?.data) {
+      const room = data.data;
+      return {
+        viewers: room.viewerCount || room.viewer_count || room.liveRoomStats?.userCount || 0,
+        likes:   room.likeCount  || room.like_count  || room.liveRoomStats?.likeCount || 0,
+        shares:  room.shareCount || room.share_count  || 0,
+      };
+    }
+  } catch (e) {
+    console.log('[tik.tools] REST stats fetch error:', e.message);
+  }
+  return null;
+}
 
 // ── tik.tools WebSocket Connection ────────────────────────────────────────────
 async function connectTikTools(username, onEvent, onStatus, onReconnect) {
@@ -331,13 +358,29 @@ io.on('connection', (socket) => {
     const conn = { ws: null, stats };
     connections.set(u, conn);
 
+    // Fetch current stats via REST API first
+    const apiKey = process.env.TIKTOOL_API_KEY;
+    if (apiKey) {
+      const roomStats = await fetchRoomStats(u, apiKey);
+      if (roomStats) {
+        if (roomStats.viewers) stats.viewers = roomStats.viewers;
+        if (roomStats.likes) stats.likes = roomStats.likes;
+        if (roomStats.shares) stats.shares = roomStats.shares;
+        console.log(`[tik.tools] Initial stats @${u}: ${stats.viewers} viewers, ${stats.likes} likes`);
+      }
+    }
+
     async function doConnect() {
       const ws = await connectTikTools(u,
         (msg) => parseTikToolsEvent(msg, u, socket),
         (status, message) => {
           socket.emit('tiktok:status', { status, username: u, message });
           io.emit('tiktok:status', { status, username: u, message });
-          if (status === 'connected') io.to(roomOf(u)).emit('overlay:status', { connected: true });
+          if (status === 'connected') {
+          io.to(roomOf(u)).emit('overlay:status', { connected: true });
+          // Send initial stats immediately
+          emitStats(u, socket);
+        }
           if (status === 'disconnected' || status === 'error') {
             io.to(roomOf(u)).emit('overlay:status', { connected: false });
             connections.delete(u);
