@@ -170,7 +170,7 @@ function parseTikToolsEvent(msg, username, socket) {
     emitStats(username, socket);
   }
 
-  else if (ev === 'follow') {
+  else if (ev === 'follow' || data.type === 'follow') {
     const user = u(data);
     stats.followers++;
     const payload = { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId };
@@ -179,12 +179,30 @@ function parseTikToolsEvent(msg, username, socket) {
     emitStats(username, socket);
   }
 
-  else if (ev === 'share') {
+  else if (ev === 'share' || data.type === 'share') {
     const user = u(data);
     stats.shares++;
     const payload = { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId };
     socket.emit('tiktok:share', payload);
     io.to(roomOf(username)).emit('share', payload);
+    emitStats(username, socket);
+  }
+
+  else if (ev === 'social') {
+    // tik.tools sends follow/share as 'social' with displayType
+    const user = u(data);
+    const action = data.displayType || data.action || '';
+    if (action === 'follow' || data.label?.includes('follow')) {
+      stats.followers++;
+      socket.emit('tiktok:follow', { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId });
+      io.to(roomOf(username)).emit('follow', { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId });
+    } else if (action === 'share' || data.label?.includes('share')) {
+      stats.shares++;
+      socket.emit('tiktok:share', { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId });
+      io.to(roomOf(username)).emit('share', { user: user.nickname || user.uniqueId, uniqueId: user.uniqueId });
+    } else {
+      console.log('[tik.tools] social event:', JSON.stringify(data).substring(0, 300));
+    }
     emitStats(username, socket);
   }
 
@@ -199,6 +217,9 @@ function parseTikToolsEvent(msg, username, socket) {
     socket.emit('tiktok:member', payload);
     io.to(roomOf(username)).emit('member', payload);
   }
+
+  // Debug: log social/follow/share for troubleshooting
+  // (remove these lines once confirmed working)
 
   // Log unknown events (must be LAST in the chain)
   else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','roomInfo','emote','envelope','subscribe','linkMicBattle','linkMicArmies','giftDynamicRestriction','shareRevenueNotice','linkMicLayout','fanTicket','giftPanelUpdate','linkMicMethod','controlMessage','msgDetect','toast','liveIntro','perception','systemMessage','linkMicPermission'].includes(ev)) {
