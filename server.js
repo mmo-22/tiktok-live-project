@@ -233,13 +233,25 @@ function parseTikToolsEvent(msg, username, socket) {
   }
 
   else if (ev === 'like') {
-    stats.likes = data.totalLikeCount || stats.likes + (data.likeCount || 1);
+    // Use totalLikeCount (absolute) if available, otherwise increment
+    if (data.totalLikeCount) stats.likes = data.totalLikeCount;
+    else stats.likes += (data.likeCount || 1);
     emitStats(username, socket);
   }
 
   else if (ev === 'roomUser' || ev === 'roomUserSeq' || ev === 'viewerCount' || ev === 'viewer' || ev === 'liveInfo') {
     const vc = data.viewerCount || data.totalViewers || data.viewer_count || data.count || null;
     if (vc !== null) stats.viewers = vc;
+    emitStats(username, socket);
+  }
+
+  else if (ev === 'roomInfo') {
+    // Initial room data — extract likes, viewers, etc.
+    if (data.likeCount) stats.likes = data.likeCount;
+    if (data.viewerCount) stats.viewers = data.viewerCount;
+    if (data.totalViewers) stats.viewers = data.totalViewers;
+    if (data.shareCount) stats.shares = data.shareCount;
+    if (data.followCount) stats.followers = data.followCount;
     emitStats(username, socket);
   }
 
@@ -287,7 +299,7 @@ function parseTikToolsEvent(msg, username, socket) {
   // (remove these lines once confirmed working)
 
   // Log unknown events (must be LAST in the chain)
-  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','roomInfo','emote','envelope','subscribe','linkMicBattle','linkMicArmies','giftDynamicRestriction','shareRevenueNotice','linkMicLayout','linkMicMethod','fanTicket','giftPanelUpdate','controlMessage','msgDetect','toast','liveIntro','perception','systemMessage','linkMicPermission','linkMic','linkLayer','link','commentTray','barrage','aiSummary','room','streamStatus','questionNew','imDelete','oecLive','rankUpdate','rankText','hourlyRank','topFans','caption','subNotify','pollMessage','goalkeeperUpdate','unauthorized'].includes(ev)) {
+  else if (!['websocket_upgrade','connected','disconnected','pong','streamEnd','emote','envelope','subscribe','linkMicBattle','linkMicArmies','giftDynamicRestriction','shareRevenueNotice','linkMicLayout','linkMicMethod','fanTicket','giftPanelUpdate','controlMessage','msgDetect','toast','liveIntro','perception','systemMessage','linkMicPermission','linkMic','linkLayer','link','commentTray','barrage','aiSummary','room','streamStatus','questionNew','imDelete','oecLive','rankUpdate','rankText','hourlyRank','topFans','caption','subNotify','pollMessage','goalkeeperUpdate','unauthorized'].includes(ev)) {
     console.log('[tik.tools] Unknown event:', ev, JSON.stringify(data).substring(0, 200));
   }
 }
@@ -306,10 +318,11 @@ io.on('connection', (socket) => {
     if (!username) return;
     const u = username.replace('@', '').trim().toLowerCase();
 
-    // Disconnect existing
-    if (connections.has(u)) {
-      try { connections.get(u).ws?.close(); } catch (_) {}
-      connections.delete(u);
+    // Disconnect ALL existing connections (not just same username)
+    for (const [key, conn] of connections) {
+      try { conn.ws?.close(); } catch (_) {}
+      connections.delete(key);
+      io.emit('tiktok:status', { status: 'disconnected', username: key });
     }
 
     socket.emit('tiktok:status', { status: 'connecting', username: u });

@@ -8,6 +8,11 @@ function connectTikTok() {
   const u = document.getElementById('usernameInput').value.replace('@', '').trim();
   if (!u) { showToast('أدخل اسم المستخدم أولاً'); return; }
   currentUsername = u;
+  // Reset stats for new connection
+  stats = { viewers: 0, likes: 0, diamonds: 0, shares: 0, followers: 0, comments: 0, gifts: 0 };
+  updateStats();
+  // Clear chat
+  document.getElementById('chatFeed').innerHTML = '<div class="empty-state">جاري الاتصال...</div>';
   socket.emit('tiktok:connect', { username: u });
   setStatus('connecting', 'جاري الاتصال...');
 }
@@ -97,6 +102,8 @@ function updateStats() {
   document.getElementById('commentCount').textContent = `💬 ${(stats.comments||0).toLocaleString()}`;
   document.getElementById('giftCount').textContent    = `🎁 ${(stats.gifts||0).toLocaleString()}`;
   document.getElementById('diamondCount').textContent = `💎 ${(stats.diamonds||0).toLocaleString()}`;
+  document.getElementById('shareCount').textContent    = `🔗 ${(stats.shares||0).toLocaleString()}`;
+  document.getElementById('followerCount').textContent = `➕ ${(stats.followers||0).toLocaleString()}`;
 }
 
 // ── Chat Feed ─────────────────────────────────────────────────────────────────
