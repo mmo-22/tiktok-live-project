@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BthLab — مختبر البث</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06060b;--surface:rgba(255,255,255,.03);--surface2:rgba(255,255,255,.06);--border:rgba(255,255,255,.06);--accent:#ff0050;--accent2:#25f4ee;--text:#f0f0f5;--muted:#555;--green:#00e676;--gold:#ffd700}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{background:var(--bg);color:var(--text);font-family:'Tajawal',sans-serif;min-height:100vh;overflow-x:hidden}
+
+.bg-glow{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.bg-glow::before{content:'';position:absolute;width:700px;height:700px;top:-250px;right:-150px;background:radial-gradient(circle,rgba(37,244,238,.07) 0%,transparent 70%);animation:glow1 12s ease-in-out infinite}
+.bg-glow::after{content:'';position:absolute;width:600px;height:600px;bottom:-200px;left:-100px;background:radial-gradient(circle,rgba(255,0,80,.05) 0%,transparent 70%);animation:glow2 15s ease-in-out infinite}
+@keyframes glow1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,-50px) scale(1.1)}}
+@keyframes glow2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,40px) scale(1.05)}}
+
+.page{position:relative;z-index:1}
+
+/* Navbar */
+.navbar{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;max-width:960px;margin:0 auto;position:sticky;top:0;z-index:50;background:rgba(6,6,11,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);border-radius:0 0 16px 16px}
+.nav-logo{font-size:18px;font-weight:900;color:var(--text);display:flex;align-items:center;gap:6px}
+.nav-logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:8px;align-items:center}
+.nav-link{color:var(--muted);font-size:13px;text-decoration:none;padding:6px 12px;border-radius:8px;transition:all .15s}
+.nav-link:hover{color:var(--text);background:var(--surface2)}
+.nav-btn{padding:8px 20px;background:var(--accent2);color:#000;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .15s}
+.nav-btn:hover{opacity:.85;transform:translateY(-1px)}
+
+/* Hero */
+.hero{text-align:center;padding:70px 20px 50px}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 18px;background:var(--surface2);border:1px solid var(--border);border-radius:99px;font-size:12px;color:var(--accent2);font-weight:700;margin-bottom:24px;letter-spacing:.5px}
+.hero-badge .dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{font-size:clamp(34px,7vw,52px);font-weight:900;line-height:1.1;margin-bottom:16px}
+.hero h1 .highlight{background:linear-gradient(135deg,var(--accent2),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{font-size:17px;color:var(--muted);max-width:520px;margin:0 auto 32px;line-height:1.7}
+.hero-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.hero-cta{display:inline-flex;align-items:center;gap:8px;padding:15px 36px;background:linear-gradient(135deg,var(--accent2),#1ac8c0);color:#000;border-radius:12px;font-size:16px;font-weight:900;text-decoration:none;transition:all .25s;box-shadow:0 4px 24px rgba(37,244,238,.2)}
+.hero-cta:hover{transform:translateY(-3px);box-shadow:0 8px 36px rgba(37,244,238,.3)}
+.hero-secondary{display:inline-flex;align-items:center;gap:8px;padding:15px 28px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:12px;font-size:15px;font-weight:700;text-decoration:none;transition:all .2s}
+.hero-secondary:hover{border-color:var(--accent2);background:var(--surface2)}
+
+/* Marquee */
+.marquee-wrap{overflow:hidden;padding:30px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:40px}
+.marquee{display:flex;gap:40px;animation:scroll 25s linear infinite;width:max-content}
+.marquee-item{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);white-space:nowrap}
+.marquee-item span{font-size:20px}
+@keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* Features */
+.features-section{padding:20px 20px 50px;max-width:860px;margin:0 auto}
+.section-title{text-align:center;font-size:24px;font-weight:900;margin-bottom:8px}
+.section-sub{text-align:center;font-size:14px;color:var(--muted);margin-bottom:28px}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.feature-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 22px;transition:all .3s;position:relative;overflow:hidden}
+.feature-card:hover{border-color:rgba(37,244,238,.2);transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.feature-card::before{content:'';position:absolute;top:0;right:0;width:100px;height:100px;background:radial-gradient(circle,rgba(37,244,238,.05) 0%,transparent 70%);pointer-events:none}
+.feature-icon{font-size:32px;margin-bottom:12px}
+.feature-title{font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text)}
+.feature-desc{font-size:13px;color:var(--muted);line-height:1.7}
+.feature-tag{display:inline-block;font-size:10px;padding:3px 8px;border-radius:4px;font-weight:700;margin-top:10px}
+.tag-live{background:rgba(0,230,118,.1);color:var(--green)}
+.tag-soon{background:var(--surface2);color:var(--muted)}
+
+/* How it works */
+.how-section{padding:20px 20px 50px;max-width:640px;margin:0 auto}
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:flex;align-items:flex-start;gap:16px;padding:18px 0;position:relative}
+.step:not(:last-child)::after{content:'';position:absolute;right:19px;top:56px;bottom:0;width:2px;background:linear-gradient(to bottom,var(--accent2),transparent)}
+.step-num{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),#1ac8c0);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#000;flex-shrink:0;position:relative;z-index:1;box-shadow:0 0 16px rgba(37,244,238,.2)}
+.step-content{flex:1;padding-top:4px}
+.step-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.step-desc{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* Stats */
+.stats-section{padding:30px 20px;max-width:600px;margin:0 auto 30px}
+.stats-grid{display:flex;justify-content:center;gap:0}
+.stat-item{flex:1;text-align:center;padding:20px;position:relative}
+.stat-item:not(:last-child)::after{content:'';position:absolute;left:0;top:20%;height:60%;width:1px;background:var(--border)}
+.stat-num{font-size:28px;font-weight:900;color:var(--accent2);margin-bottom:4px}
+.stat-label{font-size:12px;color:var(--muted)}
+
+/* Pricing Card */
+.pricing-section{padding:0 20px 50px;max-width:420px;margin:0 auto}
+.pricing-card{background:linear-gradient(145deg,rgba(37,244,238,.03),rgba(255,0,80,.02));border:1.5px solid rgba(37,244,238,.12);border-radius:24px;padding:0;position:relative;overflow:hidden}
+.pricing-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--accent2),var(--accent),var(--accent2));background-size:200%;animation:gradientMove 3s linear infinite}
+@keyframes gradientMove{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+.pricing-top{padding:28px 24px 20px;text-align:center;border-bottom:1px solid var(--border)}
+.pricing-badge{display:inline-block;padding:4px 14px;background:linear-gradient(135deg,var(--accent2),#1ac8c0);color:#000;border-radius:99px;font-size:11px;font-weight:900;margin-bottom:14px;text-transform:uppercase;letter-spacing:1px}
+.pricing-price-row{display:flex;align-items:baseline;justify-content:center;gap:4px}
+.pricing-price{font-size:56px;font-weight:900;color:var(--text);line-height:1}
+.pricing-currency{font-size:18px;color:var(--muted);font-weight:500}
+.pricing-period{font-size:13px;color:var(--muted);margin-top:6px}
+.pricing-body{padding:20px 24px 24px}
+.pricing-features{list-style:none;margin-bottom:24px}
+.pricing-features li{padding:11px 0;font-size:14px;color:rgba(255,255,255,.75);border-bottom:1px solid rgba(255,255,255,.04);display:flex;align-items:center;gap:10px}
+.pricing-features li:last-child{border:none}
+.pricing-features li .check{width:20px;height:20px;border-radius:50%;background:rgba(0,230,118,.12);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.pricing-features li .soon-tag{font-size:10px;padding:2px 6px;background:var(--surface2);border-radius:4px;color:var(--muted);margin-right:auto}
+.pricing-cta{display:block;width:100%;padding:16px;background:linear-gradient(135deg,var(--accent2),#1ac8c0);color:#000;border:none;border-radius:14px;font-family:inherit;font-size:17px;font-weight:900;cursor:pointer;text-decoration:none;text-align:center;transition:all .25s;box-shadow:0 4px 20px rgba(37,244,238,.15)}
+.pricing-cta:hover{transform:translateY(-2px);box-shadow:0 6px 28px rgba(37,244,238,.25)}
+.pricing-guarantee{text-align:center;margin-top:14px;font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}
+.trust-row{display:flex;justify-content:center;gap:18px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.trust-item{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+
+/* FAQ */
+.faq-section{padding:0 20px 50px;max-width:640px;margin:0 auto}
+.faq-item{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;overflow:hidden;transition:border-color .2s}
+.faq-item:hover{border-color:rgba(255,255,255,.1)}
+.faq-q{padding:16px 20px;font-size:14px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none}
+.faq-q::after{content:'+';font-size:20px;color:var(--muted);transition:all .2s;font-weight:400}
+.faq-item.open .faq-q::after{transform:rotate(45deg);color:var(--accent2)}
+.faq-a{padding:0 20px 16px;font-size:13px;color:var(--muted);line-height:1.8;display:none}
+.faq-item.open .faq-a{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+/* CTA final */
+.final-cta{text-align:center;padding:40px 20px 50px;max-width:500px;margin:0 auto}
+.final-cta h2{font-size:24px;font-weight:900;margin-bottom:8px}
+.final-cta p{font-size:14px;color:var(--muted);margin-bottom:20px}
+
+/* Footer */
+.footer{text-align:center;padding:24px 20px;border-top:1px solid var(--border)}
+.footer-logo{font-size:16px;font-weight:900;margin-bottom:6px}
+.footer-logo span{color:var(--accent2)}
+.footer-text{font-size:11px;color:var(--muted);line-height:1.8}
+.footer-links{display:flex;justify-content:center;gap:16px;margin-top:8px}
+.footer-links a{color:var(--muted);font-size:11px;text-decoration:none;transition:color .15s}
+.footer-links a:hover{color:var(--accent2)}
+
+/* Light mode */
+body.light{--bg:#f5f5f7;--surface:rgba(0,0,0,.03);--surface2:rgba(0,0,0,.05);--border:rgba(0,0,0,.08);--text:#1a1a2e;--muted:#888;--accent:#ff0050;--accent2:#0891b2;--green:#16a34a;--gold:#d97706}
+body.light .bg-glow::before{background:radial-gradient(circle,rgba(8,145,178,.06) 0%,transparent 70%)}
+body.light .bg-glow::after{background:radial-gradient(circle,rgba(255,0,80,.04) 0%,transparent 70%)}
+body.light .navbar{background:rgba(245,245,247,.9);border-bottom-color:rgba(0,0,0,.06)}
+body.light .hero-cta{background:linear-gradient(135deg,#0891b2,#06b6d4);box-shadow:0 4px 24px rgba(8,145,178,.15)}
+body.light .hero-cta:hover{box-shadow:0 8px 36px rgba(8,145,178,.25)}
+body.light .feature-card{background:rgba(255,255,255,.6);border-color:rgba(0,0,0,.06)}
+body.light .feature-card:hover{border-color:rgba(8,145,178,.2);box-shadow:0 8px 30px rgba(0,0,0,.08)}
+body.light .feature-card::before{background:radial-gradient(circle,rgba(8,145,178,.04) 0%,transparent 70%)}
+body.light .step-num{background:linear-gradient(135deg,#0891b2,#06b6d4);box-shadow:0 0 16px rgba(8,145,178,.15)}
+body.light .pricing-card{background:rgba(255,255,255,.7);border-color:rgba(8,145,178,.15)}
+body.light .pricing-cta{background:linear-gradient(135deg,#0891b2,#06b6d4);box-shadow:0 4px 20px rgba(8,145,178,.12)}
+body.light .faq-item{background:rgba(255,255,255,.5);border-color:rgba(0,0,0,.06)}
+body.light .marquee-wrap{border-color:rgba(0,0,0,.05)}
+body.light .hero-secondary{background:rgba(255,255,255,.5);border-color:rgba(0,0,0,.08);color:var(--text)}
+body.light .pricing-features li{color:rgba(0,0,0,.65)}
+body.light .pricing-features li .check{background:rgba(22,163,74,.1);color:#16a34a}
+body.light .tag-live{background:rgba(22,163,74,.08);color:#16a34a}
+body.light .footer{border-top-color:rgba(0,0,0,.06)}
+
+.theme-toggle{position:fixed;bottom:20px;left:20px;z-index:100;width:44px;height:44px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .2s;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.theme-toggle:hover{transform:scale(1.1)}
+
+@media(max-width:480px){
+  .hero{padding:50px 16px 40px}
+  .features-grid{grid-template-columns:1fr}
+  .stats-grid{flex-wrap:wrap}
+  .stat-item{min-width:33%}
+  .navbar{padding:12px 16px}
+  .nav-link{display:none}
+  .hero-actions{flex-direction:column;align-items:center}
+  .pricing-price{font-size:48px}
+}
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="page">
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="nav-logo">🧪 <span>BthLab</span></div>
+  <div class="nav-links">
+    <a href="#features" class="nav-link">المميزات</a>
+    <a href="#pricing" class="nav-link">الأسعار</a>
+    <a href="#faq" class="nav-link">الأسئلة</a>
+    <a href="/login.html" class="nav-btn">🔑 دخول</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-badge"><span class="dot"></span> إطلاق تجريبي</div>
+  <h1>حوّل بثك المباشر<br>إلى <span class="highlight">تجربة تفاعلية</span></h1>
+  <p>فعاليات وأدوات ذكية تخلي جمهورك يتفاعل مع بثك على تيك توك — بدون أي خبرة تقنية</p>
+  <div class="hero-actions">
+    <a href="#pricing" class="hero-cta">🚀 ابدأ الحين</a>
+    <a href="#features" class="hero-secondary">📖 تعرّف أكثر</a>
+  </div>
+</section>
+
+<!-- Marquee -->
+<div class="marquee-wrap">
+  <div class="marquee">
+    <div class="marquee-item"><span>🎰</span> عجلة الحظ</div>
+    <div class="marquee-item"><span>🔐</span> كلمة السر</div>
+    <div class="marquee-item"><span>⚔️</span> حرب الكلمات</div>
+    <div class="marquee-item"><span>❓</span> سؤال وجواب</div>
+    <div class="marquee-item"><span>🎯</span> التصويت</div>
+    <div class="marquee-item"><span>📺</span> دعم OBS</div>
+    <div class="marquee-item"><span>⚡</span> تفاعل لحظي</div>
+    <div class="marquee-item"><span>🎮</span> تحكم كامل</div>
+    <div class="marquee-item"><span>🔒</span> دفع آمن</div>
+    <div class="marquee-item"><span>🇸🇦</span> صنع بالسعودية</div>
+    <div class="marquee-item"><span>🎰</span> عجلة الحظ</div>
+    <div class="marquee-item"><span>🔐</span> كلمة السر</div>
+    <div class="marquee-item"><span>⚔️</span> حرب الكلمات</div>
+    <div class="marquee-item"><span>❓</span> سؤال وجواب</div>
+    <div class="marquee-item"><span>🎯</span> التصويت</div>
+    <div class="marquee-item"><span>📺</span> دعم OBS</div>
+    <div class="marquee-item"><span>⚡</span> تفاعل لحظي</div>
+    <div class="marquee-item"><span>🎮</span> تحكم كامل</div>
+    <div class="marquee-item"><span>🔒</span> دفع آمن</div>
+    <div class="marquee-item"><span>🇸🇦</span> صنع بالسعودية</div>
+  </div>
+</div>
+
+<!-- Features -->
+<section class="features-section" id="features">
+  <div class="section-title">وش تقدر تسوي؟</div>
+  <div class="section-sub">كل اللي تحتاجه عشان بثك يصير مختلف</div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🎰</div>
+      <div class="feature-title">عجلة الحظ</div>
+      <div class="feature-desc">المشاهدين يسجلون بالشات والعجلة تدور وتختار الفائز — حماس وتفاعل لا يوصف</div>
+      <div class="feature-tag tag-live">✓ متاح</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📺</div>
+      <div class="feature-title">دعم OBS كامل</div>
+      <div class="feature-desc">أضف الفعاليات كـ Browser Source في OBS أو StreamLabs بنسخ رابط واحد</div>
+      <div class="feature-tag tag-live">✓ متاح</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">تفاعل لحظي</div>
+      <div class="feature-desc">تعليقات الشات تتحول لأفعال على الشاشة فوراً — كل شيء real-time</div>
+      <div class="feature-tag tag-live">✓ متاح</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎮</div>
+      <div class="feature-title">تحكم كامل</div>
+      <div class="feature-desc">لوحة تحكم سهلة — غيّر الكلمة المفتاحية، شل مشتركين، دوّر العجلة بضغطة</div>
+      <div class="feature-tag tag-live">✓ متاح</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔐</div>
+      <div class="feature-title">كلمة السر</div>
+      <div class="feature-desc">حروف تنكشف واحد واحد والمشاهدين يتسابقون على التخمين الصحيح</div>
+      <div class="feature-tag tag-live">✓ متاح</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚔️</div>
+      <div class="feature-title">حرب الكلمات</div>
+      <div class="feature-desc">فريقين يتنافسون مباشرة — كل كلمة صحيحة نقطة لفريقك</div>
+      <div class="feature-tag tag-live">✓ متاح</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">❓</div>
+      <div class="feature-title">سؤال وجواب</div>
+      <div class="feature-desc">اطرح سؤال بخيارات — المشاهدين يجاوبون بالرقم وأول إجابة صحيحة تفوز</div>
+      <div class="feature-tag tag-live">✓ متاح</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <div class="feature-title">التصويت</div>
+      <div class="feature-desc">اسأل جمهورك رأيهم — النتائج تتحدث لحظياً والكل يشارك بصوت واحد</div>
+      <div class="feature-tag tag-live">✓ متاح</div>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="how-section" id="how">
+  <div class="section-title">كيف يشتغل؟</div>
+  <div class="section-sub">4 خطوات وتبدأ — أقل من 5 دقائق</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">اشترك بـ 80 ريال / شهر</div>
+        <div class="step-desc">ادفع بمدى أو فيزا أو ماستركارد — تحصل على مفتاح الدخول فوراً</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">سجل دخول وأضف حسابك</div>
+        <div class="step-desc">اكتب يوزرنيم تيك توك حقك — السيرفر يتصل ببثك تلقائي بثواني</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">أضف الـ Overlay في OBS</div>
+        <div class="step-desc">انسخ الرابط وحطه كـ Browser Source — الفعالية تظهر على بثك مباشرة</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">ابدأ بثك وشاهد التفاعل!</div>
+        <div class="step-desc">المشاهدين يتفاعلون بالشات والعجلة تدور أمامهم — تجربة ما تتكرر</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats -->
+<section class="stats-section">
+  <div class="stats-grid">
+    <div class="stat-item"><div class="stat-num">10+</div><div class="stat-label">فعالية جاية</div></div>
+    <div class="stat-item"><div class="stat-num">24/7</div><div class="stat-label">سيرفر شغال</div></div>
+    <div class="stat-item"><div class="stat-num">0</div><div class="stat-label">خبرة تقنية مطلوبة</div></div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing-section" id="pricing">
+  <div class="pricing-card">
+    <div class="pricing-top">
+      <div class="pricing-badge">الباقة الشهرية</div>
+      <div class="pricing-price-row">
+        <span class="pricing-price">80</span>
+        <span class="pricing-currency">ريال</span>
+      </div>
+      <div class="pricing-period">/ شهرياً — بدون عقد أو التزام</div>
+    </div>
+    <div class="pricing-body">
+      <ul class="pricing-features">
+        <li><span class="check">✓</span> عجلة الحظ التفاعلية</li>
+        <li><span class="check">✓</span> كلمة السر</li>
+        <li><span class="check">✓</span> حرب الكلمات</li>
+        <li><span class="check">✓</span> سؤال وجواب</li>
+        <li><span class="check">✓</span> التصويت</li>
+        <li><span class="check">✓</span> Overlay جاهز لـ OBS/StreamLabs</li>
+        <li><span class="check">✓</span> لوحة تحكم كاملة</li>
+        <li><span class="check">✓</span> اتصال تلقائي بالبث</li>
+        <li><span class="check">✓</span> دعم فني</li>
+        <li><span class="check">✓</span> تحديثات وفعاليات جديدة</li>
+      </ul>
+      <a href="/login.html" class="pricing-cta">🚀 اشترك الحين</a>
+      <div class="pricing-guarantee">🛡️ اشتراك شهري — ألغِ بأي وقت</div>
+      <div class="trust-row">
+        <span class="trust-item">🔒 دفع آمن</span>
+        <span class="trust-item">💳 مدى / فيزا</span>
+        <span class="trust-item">🇸🇦 ميسّر</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-section" id="faq">
+  <div class="section-title">أسئلة شائعة</div>
+  <div class="section-sub">كل اللي تحتاج تعرفه</div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">هل أحتاج خبرة تقنية؟</div>
+    <div class="faq-a">أبداً! كل شيء جاهز — بس سجل دخول، أضف حسابك، وانسخ رابط الـ Overlay في OBS. ما تحتاج أي برمجة أو إعدادات معقدة.</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">هل يشتغل على أي بث تيك توك؟</div>
+    <div class="faq-a">نعم! يشتغل على أي بث تيك توك مباشر. بس أدخل اليوزرنيم حقك والسيرفر يتصل تلقائي ببثك.</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">كيف أضيف العجلة على البث؟</div>
+    <div class="faq-a">من صفحة التحكم انسخ رابط الـ Overlay، بعدين في OBS أو StreamLabs أضف مصدر جديد ← Browser Source ← الصق الرابط. خلاص!</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">هل أقدر ألغي الاشتراك؟</div>
+    <div class="faq-a">الاشتراك شهري بدون أي التزام. لما ينتهي الشهر يتوقف تلقائي وما يتجدد إلا لما تدفع مرة ثانية.</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">وش الفعاليات الجاية؟</div>
+    <div class="faq-a">نشتغل على فعاليات جديدة مثل كلمة السر، حرب الكلمات، خمن الشخصية، تحدي الصور وأكثر! كل المشتركين يحصلون على التحديثات مجاناً.</div>
+  </div>
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q">هل يدعم منصات غير تيك توك؟</div>
+    <div class="faq-a">حالياً ندعم تيك توك فقط. دعم منصات أخرى مثل يوتيوب وتويتش في الخطة المستقبلية.</div>
+  </div>
+</section>
+
+<!-- Final CTA -->
+<section class="final-cta">
+  <h2>جاهز تميّز بثك؟</h2>
+  <p>انضم الحين وخلّ جمهورك يعيش تجربة مختلفة</p>
+  <a href="/login.html" class="hero-cta">🚀 ابدأ الحين — 80 ريال/شهر</a>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-logo">🧪 <span>BthLab</span></div>
+  <div class="footer-text">مختبر البث — أدوات تفاعلية للبث المباشر<br>© 2026 BthLab. جميع الحقوق محفوظة.</div>
+  <div class="footer-links">
+    <a href="/login.html">تسجيل الدخول</a>
+    <a href="#pricing">الأسعار</a>
+    <a href="#faq">الأسئلة الشائعة</a>
+    <a href="/policies.html">شروط الاستخدام</a>
+    <a href="/policies.html#refund">سياسة الاسترجاع</a>
+    <a href="/policies.html#privacy">الخصوصية</a>
+  </div>
+</footer>
+
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀️</button>
+
+</div>
+</body>
+</html>
+<script>
+function toggleTheme() {
+  const body = document.body;
+  const btn = document.getElementById('theme-toggle');
+  body.classList.toggle('light');
+  const isLight = body.classList.contains('light');
+  btn.textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+// Load saved theme
+const saved = localStorage.getItem('theme');
+if (saved === 'light') {
+  document.body.classList.add('light');
+  document.getElementById('theme-toggle').textContent = '🌙';
+}
+</script>

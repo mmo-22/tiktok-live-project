@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>السياسات — BthLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06060b;--surface:rgba(255,255,255,.03);--border:rgba(255,255,255,.06);--accent2:#0891b2;--text:#f0f0f5;--muted:#555}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Tajawal',sans-serif;min-height:100vh;padding:20px}
+.container{max-width:720px;margin:0 auto}
+.navbar{display:flex;justify-content:space-between;align-items:center;padding:16px 0;margin-bottom:30px;border-bottom:1px solid var(--border)}
+.nav-logo{font-size:18px;font-weight:900} .nav-logo span{color:var(--accent2)}
+.nav-btn{padding:8px 20px;background:var(--accent2);color:#000;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;text-decoration:none}
+
+.tabs{display:flex;gap:6px;margin-bottom:30px;flex-wrap:wrap;position:sticky;top:0;z-index:10;background:var(--bg);padding:14px 0;border-bottom:1px solid var(--border)}
+.tab{padding:10px 18px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);transition:all .15s}
+.tab.active{background:var(--accent2);color:#000;border-color:var(--accent2)}
+
+.policy{display:none}
+.policy.active{display:block}
+.policy h2{font-size:22px;font-weight:900;margin-bottom:6px;color:var(--accent2)}
+.policy .date{font-size:12px;color:var(--muted);margin-bottom:24px}
+.policy h3{font-size:16px;font-weight:700;margin:24px 0 10px;color:var(--text);padding-bottom:6px;border-bottom:1px solid var(--border)}
+.policy p{font-size:14px;color:rgba(255,255,255,.7);line-height:1.9;margin-bottom:12px}
+.policy ul{margin:8px 0 16px 20px;font-size:14px;color:rgba(255,255,255,.7);line-height:2}
+.policy .highlight-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin:16px 0;font-size:13px;color:rgba(255,255,255,.6);line-height:1.8}
+.policy .highlight-box strong{color:var(--accent2)}
+
+.footer{text-align:center;padding:30px 0;margin-top:40px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+
+/* Light mode */
+body.light{--bg:#f5f5f7;--surface:rgba(0,0,0,.03);--border:rgba(0,0,0,.08);--accent2:#0891b2;--text:#1a1a2e;--muted:#888}
+body.light .tab.active{background:#0891b2;color:#fff;border-color:#0891b2}
+body.light .highlight-box{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.1);color:rgba(0,0,0,.65)}
+body.light .highlight-box strong{color:#0891b2}
+body.light .policy p{color:rgba(0,0,0,.65)}
+body.light .policy ul{color:rgba(0,0,0,.65)}
+body.light .nav-btn{background:#0891b2}
+body.light .tabs{background:var(--bg)}
+
+.theme-toggle{position:fixed;bottom:20px;left:20px;z-index:100;width:40px;height:40px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .2s;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.theme-toggle:hover{transform:scale(1.1)}
+</style>
+</head>
+<body>
+<div class="container">
+
+<nav class="navbar">
+  <div class="nav-logo">🧪 <span>BthLab</span></div>
+  <a href="/" class="nav-btn">← الرئيسية</a>
+</nav>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('terms')">📄 شروط الاستخدام</button>
+  <button class="tab" onclick="showTab('refund')">💰 سياسة الاسترجاع</button>
+  <button class="tab" onclick="showTab('privacy')">🔒 سياسة الخصوصية</button>
+</div>
+
+<!-- شروط الاستخدام -->
+<div class="policy active" id="terms">
+  <h2>📄 شروط الاستخدام</h2>
+  <div class="date">آخر تحديث: يناير 2026</div>
+
+  <h3>1. مقدمة</h3>
+  <p>مرحباً بك في BthLab (مختبر البث). باستخدامك لخدماتنا فإنك توافق على الالتزام بهذه الشروط والأحكام. يرجى قراءتها بعناية قبل الاشتراك أو استخدام أي من خدماتنا.</p>
+
+  <h3>2. وصف الخدمة</h3>
+  <p>BthLab منصة تقدم أدوات وفعاليات تفاعلية للبث المباشر على تيك توك، تشمل على سبيل المثال لا الحصر: عجلة الحظ، كلمة السر، حرب الكلمات، وغيرها من الفعاليات التي قد تُضاف مستقبلاً.</p>
+
+  <h3>3. الاشتراك والدفع</h3>
+  <ul>
+    <li>الاشتراك شهري بمبلغ <strong>80 ريال سعودي</strong> (غير شامل الضريبة إن وُجدت).</li>
+    <li>الاشتراك لا يتجدد تلقائياً — ينتهي بعد 30 يوماً من تاريخ الدفع.</li>
+    <li>يتم الدفع عبر بوابة StreamPay بطرق الدفع المتاحة (مدى، فيزا، ماستركارد).</li>
+    <li>عند إتمام الدفع تحصل على مفتاح اشتراك فريد خاص بك.</li>
+  </ul>
+
+  <h3>4. حقوق الاستخدام</h3>
+  <ul>
+    <li>مفتاح الاشتراك شخصي وغير قابل للنقل أو المشاركة مع أطراف أخرى.</li>
+    <li>يُمنع إعادة بيع الخدمة أو مفتاح الاشتراك.</li>
+    <li>يُمنع استخدام الخدمة لأي أغراض غير قانونية أو مخالفة للأنظمة.</li>
+    <li>يحق لنا تعطيل أو إلغاء الاشتراك في حال مخالفة هذه الشروط.</li>
+  </ul>
+
+  <h3>5. توفر الخدمة</h3>
+  <p>نسعى لتوفير الخدمة على مدار الساعة، لكن لا نضمن عدم حدوث انقطاعات تقنية أو أعمال صيانة. لا نتحمل أي مسؤولية عن أي خسائر ناتجة عن انقطاع مؤقت في الخدمة.</p>
+
+  <h3>6. المسؤولية</h3>
+  <p>BthLab ليست مسؤولة عن أي أضرار مباشرة أو غير مباشرة ناتجة عن استخدام الخدمة. المستخدم مسؤول عن المحتوى الذي يعرضه خلال البث المباشر.</p>
+
+  <h3>7. التعديلات</h3>
+  <p>يحق لنا تعديل هذه الشروط في أي وقت. سيتم إشعار المشتركين بأي تغييرات جوهرية عبر البريد الإلكتروني أو الموقع.</p>
+
+  <h3>8. التواصل</h3>
+  <div class="highlight-box">
+    للاستفسارات أو الشكاوى يرجى التواصل عبر:<br>
+    <strong>الهاتف:</strong> +966 55 260 8556<br>
+    <strong>البريد الإلكتروني:</strong> support@bthlab.live<br>
+    <strong>صفحة التواصل:</strong> <a href="/contact.html" style="color:var(--accent2)">bthlab.live/contact</a><br><br>
+    <strong>⏱ وقت الرد على الاستفسارات:</strong> خلال 24 ساعة<br>
+    <strong>🔧 وقت معالجة الشكاوى:</strong> خلال 3 أيام عمل<br>
+    <strong>📱 التواصل الاجتماعي:</strong> يمكنك تقديم شكوى عبر حساباتنا على X (تويتر) أو تيك توك
+  </div>
+</div>
+
+<!-- سياسة الاسترجاع -->
+<div class="policy" id="refund">
+  <h2>💰 سياسة الاسترجاع</h2>
+  <div class="date">آخر تحديث: يناير 2026</div>
+
+  <h3>1. حق الاسترجاع</h3>
+  <p>يحق للمشترك طلب استرجاع المبلغ المدفوع وفقاً للشروط التالية:</p>
+
+  <div class="highlight-box">
+    <strong>✅ يحق لك الاسترجاع الكامل:</strong><br>
+    • خلال أول <strong>3 أيام</strong> من تاريخ الاشتراك.<br>
+    • إذا لم تتمكن من استخدام الخدمة بسبب مشكلة تقنية من طرفنا لم نتمكن من حلها.<br><br>
+    <strong>❌ لا يحق الاسترجاع:</strong><br>
+    • بعد مرور 3 أيام من تاريخ الاشتراك.<br>
+    • إذا تم استخدام الخدمة بشكل فعلي (اتصال بالبث وتشغيل الفعاليات).<br>
+    • إذا تم تعطيل الاشتراك بسبب مخالفة شروط الاستخدام.
+  </div>
+
+  <h3>2. كيفية طلب الاسترجاع</h3>
+  <ul>
+    <li>أرسل طلب استرجاع عبر البريد الإلكتروني: <strong>support@bthlab.com</strong></li>
+    <li>اذكر في الطلب: مفتاح الاشتراك، سبب الاسترجاع، البريد الإلكتروني المسجل.</li>
+    <li>يتم مراجعة الطلب خلال <strong>3-5 أيام عمل</strong>.</li>
+  </ul>
+
+  <h3>3. طريقة الاسترجاع</h3>
+  <p>يتم إرجاع المبلغ بنفس طريقة الدفع المستخدمة عند الاشتراك. قد يستغرق وصول المبلغ من 5 إلى 14 يوم عمل حسب البنك أو مزود الخدمة.</p>
+
+  <h3>4. حالات خاصة</h3>
+  <p>في حال إيقاف الخدمة نهائياً من طرفنا قبل انتهاء فترة الاشتراك، يحق للمشترك استرجاع المبلغ عن الأيام المتبقية بشكل تناسبي.</p>
+</div>
+
+<!-- سياسة الخصوصية -->
+<div class="policy" id="privacy">
+  <h2>🔒 سياسة الخصوصية وحماية البيانات</h2>
+  <div class="date">آخر تحديث: يناير 2026</div>
+
+  <h3>1. البيانات التي نجمعها</h3>
+  <p>نجمع الحد الأدنى من البيانات اللازمة لتقديم الخدمة:</p>
+  <ul>
+    <li><strong>بيانات الاشتراك:</strong> الاسم، البريد الإلكتروني، مفتاح الاشتراك.</li>
+    <li><strong>بيانات الدفع:</strong> تتم معالجتها بالكامل عبر بوابة StreamPay ولا نحتفظ بأي بيانات بطاقات بنكية.</li>
+    <li><strong>بيانات الاستخدام:</strong> اسم مستخدم تيك توك، سجل الاتصال بالبث.</li>
+  </ul>
+
+  <h3>2. كيف نستخدم بياناتك</h3>
+  <ul>
+    <li>تقديم الخدمة وإدارة اشتراكك.</li>
+    <li>التواصل معك بخصوص اشتراكك أو تحديثات الخدمة.</li>
+    <li>تحسين جودة الخدمة وتطوير فعاليات جديدة.</li>
+  </ul>
+
+  <h3>3. مشاركة البيانات</h3>
+  <div class="highlight-box">
+    <strong>🛡️ نلتزم بعدم:</strong><br>
+    • بيع بياناتك الشخصية لأي طرف ثالث.<br>
+    • مشاركة بياناتك مع جهات تسويقية.<br>
+    • استخدام بياناتك لأي غرض غير مذكور في هذه السياسة.<br><br>
+    <strong>قد نشارك بياناتك فقط في الحالات التالية:</strong><br>
+    • بناءً على طلب رسمي من جهة حكومية مختصة.<br>
+    • لمعالجة عمليات الدفع عبر بوابة StreamPay.
+  </div>
+
+  <h3>4. حماية البيانات</h3>
+  <ul>
+    <li>جميع الاتصالات مشفرة عبر بروتوكول HTTPS.</li>
+    <li>بيانات الدفع تُعالج عبر بوابة StreamPay المرخصة من البنك المركزي السعودي.</li>
+    <li>مفاتيح الاشتراك تُولّد بشكل عشوائي ومشفر.</li>
+    <li>لا نحتفظ بأي بيانات بطاقات ائتمانية.</li>
+  </ul>
+
+  <h3>5. حقوقك</h3>
+  <p>يحق لك في أي وقت:</p>
+  <ul>
+    <li>طلب الاطلاع على بياناتك الشخصية المحفوظة لدينا.</li>
+    <li>طلب تعديل أو تصحيح بياناتك.</li>
+    <li>طلب حذف بياناتك نهائياً (مع ملاحظة أن ذلك قد يؤدي لإلغاء اشتراكك).</li>
+  </ul>
+
+  <h3>6. ملفات تعريف الارتباط (Cookies)</h3>
+  <p>نستخدم التخزين المحلي (LocalStorage) في المتصفح فقط لحفظ مفتاح الاشتراك لتسهيل تسجيل الدخول. لا نستخدم أي ملفات تتبع أو تحليلات خارجية.</p>
+
+  <h3>7. التعديلات</h3>
+  <p>يحق لنا تحديث هذه السياسة. سيتم نشر أي تعديلات على هذه الصفحة مع تحديث التاريخ أعلاه.</p>
+
+  <h3>8. التواصل</h3>
+  <div class="highlight-box">
+    لأي استفسار حول خصوصية بياناتك:<br>
+    <strong>الهاتف:</strong> +966 55 260 8556<br>
+    <strong>البريد الإلكتروني:</strong> support@bthlab.live<br>
+    <strong>صفحة التواصل:</strong> <a href="/contact.html" style="color:var(--accent2)">bthlab.live/contact</a>
+  </div>
+</div>
+
+<footer class="footer">
+  🧪 BthLab — مختبر البث<br>
+  © 2026 BthLab. جميع الحقوق محفوظة.
+</footer>
+
+</div>
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀️</button>
+<script>
+function showTab(id) {
+  document.querySelectorAll('.policy').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  // Find and activate the correct tab button
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.getAttribute('onclick') && t.getAttribute('onclick').includes(id)) t.classList.add('active');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  const isLight = document.body.classList.contains('light');
+  document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+if (localStorage.getItem('theme') === 'light') {
+  document.body.classList.add('light');
+  document.getElementById('theme-toggle').textContent = '🌙';
+}
+// Handle hash links from other pages
+if (location.hash) {
+  const id = location.hash.replace('#','');
+  const el = document.getElementById(id);
+  if (el && el.classList.contains('policy')) {
+    showTab(id);
+  }
+}
+</script>
+</body>
+</html>

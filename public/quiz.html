@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>❓ سؤال وجواب — BthLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root { --bg:#0a0a0f; --surface:#111118; --surface2:#1a1a24; --border:rgba(255,255,255,.08); --accent:#ff0050; --accent2:#0891b2; --text:#f0f0f5; --muted:#666; --green:#1dba72; --amber:#f59e0b; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; min-height:100vh; }
+header { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; justify-content:space-between; }
+.logo { font-size:18px; font-weight:700; } .logo span { color:var(--accent); }
+.container { max-width:700px; margin:0 auto; padding:20px 16px; display:flex; flex-direction:column; gap:14px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; }
+.card-title { font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+.how-box { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:14px; font-size:13px; color:rgba(255,255,255,.6); line-height:2; border-right:3px solid var(--accent2); }
+.how-box strong { color:var(--accent2); }
+.field { margin-bottom:12px; }
+label { font-size:13px; color:#aaa; display:block; margin-bottom:6px; }
+input[type=text], input[type=number], select { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:inherit; font-size:14px; padding:10px 14px; border-radius:8px; outline:none; }
+input:focus, select:focus { border-color:var(--accent2); }
+.btn { border:none; font-family:inherit; font-size:14px; font-weight:700; padding:12px; border-radius:10px; cursor:pointer; width:100%; }
+.btn:hover { opacity:.85; }
+.btn-start { background:var(--green); color:#fff; }
+.btn-stop { background:var(--accent); color:#fff; }
+.choices-list { display:flex; flex-direction:column; gap:8px; margin:10px 0; }
+.choice-row { display:flex; align-items:center; gap:8px; }
+.choice-num { width:28px; height:28px; border-radius:50%; background:var(--surface2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--muted); flex-shrink:0; }
+.choice-row input { flex:1; }
+.choice-row.correct .choice-num { background:rgba(29,186,114,.2); border-color:var(--green); color:var(--green); }
+.correct-select { display:flex; gap:8px; margin:8px 0; }
+.correct-opt { flex:1; padding:8px; border-radius:8px; text-align:center; font-size:13px; font-weight:700; cursor:pointer; background:var(--surface2); border:2px solid var(--border); color:var(--muted); transition:all .2s; }
+.correct-opt.active { border-color:var(--green); color:var(--green); background:rgba(29,186,114,.08); }
+.timer-display { text-align:center; font-size:28px; font-weight:900; color:var(--accent2); padding:8px; }
+.answers-count { text-align:center; font-size:14px; color:var(--muted); }
+.results-bar { display:flex; flex-direction:column; gap:6px; margin:12px 0; }
+.result-row { display:flex; align-items:center; gap:8px; }
+.result-label { font-size:13px; width:100px; text-align:right; }
+.result-bar-wrap { flex:1; height:24px; background:var(--surface2); border-radius:6px; overflow:hidden; position:relative; }
+.result-bar-fill { height:100%; border-radius:6px; transition:width .5s ease; }
+.result-count { font-size:12px; color:var(--muted); width:40px; }
+.overlay-link { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-family:monospace; font-size:12px; color:var(--accent2); word-break:break-all; cursor:pointer; }
+@media(max-width:500px){
+  .container{padding:14px 10px;gap:10px}
+  .card{padding:14px}
+  header{padding:12px 14px}
+  .how-box{font-size:12px;padding:10px 12px}
+  .choice-row input{font-size:13px;padding:8px 10px}
+  .correct-select{flex-wrap:wrap}
+  .correct-opt{font-size:12px;padding:6px}
+  .timer-display{font-size:24px}
+  .result-label{width:70px;font-size:11px}
+}
+
+  .open-overlay-btn { display:inline-flex; align-items:center; gap:7px; background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; border:none; font-family:inherit; font-size:13px; font-weight:900; padding:9px 16px; border-radius:10px; cursor:pointer; text-decoration:none; transition:.2s; box-shadow:0 8px 20px -8px #8b5cf6; }
+  .open-overlay-btn:hover { transform:translateY(-2px); box-shadow:0 12px 26px -8px #8b5cf6; }
+  .overlay-actions { display:flex; gap:8px; align-items:stretch; margin-top:6px; flex-wrap:wrap; }
+  .overlay-actions .overlay-link { flex:1; min-width:0; }
+</style>
+  <div class="logo">❓ سؤال وجواب <span>Control</span></div>
+  <div style="font-size:13px;color:var(--muted)" id="status-text">غير متصل</div>
+</header>
+<div class="container">
+
+  <div class="how-box">
+    <strong>📖 كيف تشتغل الفعالية:</strong><br>
+    1. اكتب السؤال والخيارات (2-4 خيارات) وحدد الجواب الصحيح<br>
+    2. حدد وقت الإجابة (10-120 ثانية) واضغط ابدأ<br>
+    3. المشاهدين يجاوبون في الشات بكتابة رقم الخيار (1، 2، 3، 4)<br>
+    4. أول واحد يجاوب صح يكون الفائز! 🏆 + تظهر النتائج لكل الخيارات<br>
+    <strong>مثال:</strong> "ما عاصمة السعودية؟" → 1.جدة 2.الرياض 3.مكة → الجواب: 2
+  </div>
+
+  <div class="card">
+    <div class="card-title">السؤال</div>
+    <div class="field">
+      <label>اكتب السؤال</label>
+      <input type="text" id="question-input" placeholder="مثال: ما أكبر دولة في العالم؟">
+    </div>
+    <div class="choices-list" id="choices-list">
+      <div class="choice-row" data-idx="0"><span class="choice-num">1</span><input type="text" placeholder="الخيار الأول" class="choice-input"></div>
+      <div class="choice-row" data-idx="1"><span class="choice-num">2</span><input type="text" placeholder="الخيار الثاني" class="choice-input"></div>
+      <div class="choice-row" data-idx="2"><span class="choice-num">3</span><input type="text" placeholder="الخيار الثالث (اختياري)" class="choice-input"></div>
+      <div class="choice-row" data-idx="3"><span class="choice-num">4</span><input type="text" placeholder="الخيار الرابع (اختياري)" class="choice-input"></div>
+    </div>
+    <label>الجواب الصحيح</label>
+    <div class="correct-select" id="correct-select">
+      <div class="correct-opt" onclick="setCorrect(0)">1</div>
+      <div class="correct-opt" onclick="setCorrect(1)">2</div>
+      <div class="correct-opt" onclick="setCorrect(2)">3</div>
+      <div class="correct-opt" onclick="setCorrect(3)">4</div>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label>⏱ وقت الإجابة (ثانية)</label>
+      <input type="number" id="timer-input" value="30" min="10" max="120">
+    </div>
+    <button class="btn btn-start" onclick="startQuiz()">▶ ابدأ السؤال</button>
+  </div>
+
+  <div class="card" id="live-card" style="display:none">
+    <div class="card-title">الجولة الحالية</div>
+    <div class="timer-display" id="timer-display">00:30</div>
+    <div class="answers-count" id="answers-count">0 إجابة</div>
+    <button class="btn btn-stop" onclick="stopQuiz()" style="margin-top:12px">⏹ أنهِ مبكراً</button>
+    <div class="results-bar" id="results-bar"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔗 رابط الأوفرلي</div>
+    <div class="overlay-actions"><div class="overlay-link" id="overlay-link" onclick="copyLink()">اتصل بالبث أولاً</div><a class="open-overlay-btn" href="#" id="open-overlay-link" target="_blank" rel="noopener" onclick="return openOverlayInNewTab(this)">🚀 فتح الأوفرلاي</a></div>
+  </div>
+</div>
+
+<script>
+
+// 🔒 sanitize URL — حفظ المفاتيح وتنظيف الرابط
+(function(){
+  var p = new URLSearchParams(location.search);
+  var k = p.get('key'), pw = p.get('pw');
+  if (k) localStorage.setItem('subscription_key', k);
+  if (pw) localStorage.setItem('owner_password', pw);
+  if (k || pw) {
+    var cu = new URL(location.href);
+    cu.searchParams.delete('key'); cu.searchParams.delete('pw');
+    history.replaceState({}, '', cu.pathname + (cu.search || '') + (cu.hash || ''));
+  }
+})();
+
+const params = new URLSearchParams(location.search);
+const username = params.get('username') || '';
+const __auth = (function(){ var p = new URLSearchParams(location.search); return { key: p.get('key')||'', pw: p.get('pw')||'' }; })();
+const socket = io({ auth: __auth });
+let correctIndex = -1;
+let quizTimer = null;
+let quizEndTime = 0;
+
+if (username) {
+  socket.emit('join', { username });
+  document.getElementById('status-text').textContent = '@' + username;
+  document.getElementById('overlay-link').textContent = location.origin + '/quiz-overlay.html?username=' + username;
+}
+
+function setCorrect(idx) {
+  correctIndex = idx;
+  document.querySelectorAll('.correct-opt').forEach((el, i) => el.classList.toggle('active', i === idx));
+}
+
+async function startQuiz() {
+  const question = document.getElementById('question-input').value.trim();
+  if (!question || correctIndex < 0) return alert('اكتب السؤال وحدد الجواب الصحيح');
+  const inputs = document.querySelectorAll('.choice-input');
+  const choices = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+  if (choices.length < 2) return alert('أضف خيارين على الأقل');
+  if (correctIndex >= choices.length) return alert('الجواب الصحيح خارج نطاق الخيارات');
+  const timer = parseInt(document.getElementById('timer-input').value) || 30;
+
+  await fetch('/api/quiz/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, question, choices, correctIndex, timer }) });
+
+  document.getElementById('live-card').style.display = 'block';
+  quizEndTime = Date.now() + timer * 1000;
+  startCountdown();
+}
+
+async function stopQuiz() {
+  await fetch('/api/quiz/stop', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username }) });
+  if (quizTimer) clearInterval(quizTimer);
+}
+
+function startCountdown() {
+  if (quizTimer) clearInterval(quizTimer);
+  updateCountdown();
+  quizTimer = setInterval(updateCountdown, 200);
+}
+
+function updateCountdown() {
+  const remain = Math.max(0, quizEndTime - Date.now());
+  const sec = Math.ceil(remain / 1000);
+  document.getElementById('timer-display').textContent = String(Math.floor(sec/60)).padStart(2,'0') + ':' + String(sec%60).padStart(2,'0');
+  if (remain <= 0 && quizTimer) clearInterval(quizTimer);
+}
+
+socket.on('quiz:answer', (data) => {
+  document.getElementById('answers-count').textContent = data.totalAnswers + ' إجابة';
+});
+
+socket.on('quiz:end', (data) => {
+  if (quizTimer) clearInterval(quizTimer);
+  const inputs = document.querySelectorAll('.choice-input');
+  const choices = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+  const total = data.totalAnswers || 1;
+  const bar = document.getElementById('results-bar');
+  const colors = ['#ff0050','#0891b2','#ffd700','#1dba72'];
+  bar.innerHTML = choices.map((c, i) => {
+    const count = data.results[i] || 0;
+    const pct = Math.round((count/total)*100);
+    const isCorrect = i === data.correctIndex;
+    return `<div class="result-row"><div class="result-label" style="color:${isCorrect?'#1dba72':'#aaa'}">${isCorrect?'✅ ':''}${c}</div><div class="result-bar-wrap"><div class="result-bar-fill" style="width:${pct}%;background:${colors[i%4]}"></div></div><div class="result-count">${count} (${pct}%)</div></div>`;
+  }).join('');
+  if (data.winner) document.getElementById('answers-count').textContent = '🏆 أسرع إجابة: ' + data.winner.name;
+});
+
+function copyLink() {
+  navigator.clipboard.writeText(document.getElementById('overlay-link').textContent);
+  document.getElementById('overlay-link').style.color='#1dba72';
+  setTimeout(()=>document.getElementById('overlay-link').style.color='',1500);
+}
+
+// ── Open overlay in new tab (BthLab) ───────────────────
+function openOverlayInNewTab(a) {
+  var el = document.getElementById('overlay-link');
+  var url = (el && el.textContent || '').trim();
+  if (!url || url.indexOf('http') !== 0) {
+    alert('اتصل بالبث أولاً للحصول على رابط الأوفرلاي');
+    return false;
+  }
+  a.href = url;
+  return true;
+}
+// حدّث href تلقائياً إذا تغيّر النص (مرّة كل ثانية يكفي ولا يحمّل شي)
+setInterval(function() {
+  var el = document.getElementById('overlay-link');
+  var btn = document.getElementById('open-overlay-link');
+  if (!el || !btn) return;
+  var url = (el.textContent || '').trim();
+  if (url.indexOf('http') === 0 && btn.getAttribute('href') !== url) btn.setAttribute('href', url);
+}, 1000);
+
+</script>
+<div style="text-align:center;padding:20px 16px;font-size:11px;color:#444;margin-top:24px;border-top:1px solid rgba(255,255,255,.06);width:100%">© 2026 BthLab. جميع الحقوق محفوظة.</div>
+</body>
+</html>

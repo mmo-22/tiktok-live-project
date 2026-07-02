@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إدارة الاشتراكات — BthLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0a0a0f; --surface:#111118; --surface2:#1a1a24; --border:rgba(255,255,255,.08); --accent:#ff0050; --accent2:#0891b2; --text:#f0f0f5; --muted:#666; --green:#1dba72; --red:#ef4444; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; padding:20px; }
+  .container { max-width:800px; margin:0 auto; }
+  h1 { font-size:22px; margin-bottom:4px; } h1 span { color:var(--accent2); }
+  .subtitle { color:var(--muted); font-size:13px; margin-bottom:24px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .card-title { font-size:15px; font-weight:700; margin-bottom:12px; color:var(--accent2); }
+  .stats { display:flex; gap:12px; margin-bottom:16px; }
+  .stat { flex:1; background:var(--surface2); border-radius:10px; padding:14px; text-align:center; }
+  .stat-num { font-size:28px; font-weight:900; }
+  .stat-label { font-size:11px; color:var(--muted); margin-top:4px; }
+  .add-form { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .add-form input { flex:1; min-width:100px; padding:10px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:13px; }
+  .btn { padding:10px 16px; border:none; border-radius:8px; font-family:inherit; font-weight:700; cursor:pointer; font-size:13px; }
+  .btn-add { background:var(--green); color:#fff; }
+  .sub-list { display:flex; flex-direction:column; gap:8px; }
+  .sub-item { display:flex; align-items:center; gap:10px; padding:12px; background:var(--surface2); border-radius:10px; flex-wrap:wrap; }
+  .sub-item.expired { opacity:.5; }
+  .sub-key { font-family:monospace; font-size:14px; font-weight:700; color:var(--accent2); min-width:130px; cursor:pointer; }
+  .sub-info { flex:1; min-width:150px; }
+  .sub-name { font-weight:700; font-size:13px; }
+  .sub-email { font-size:11px; color:var(--muted); }
+  .sub-dates { font-size:11px; color:var(--muted); }
+  .sub-status { font-size:11px; padding:3px 8px; border-radius:6px; font-weight:700; }
+  .sub-status.active { background:rgba(29,186,114,.15); color:var(--green); }
+  .sub-status.inactive { background:rgba(239,68,68,.15); color:var(--red); }
+  .sub-status.expired-status { background:rgba(245,158,11,.15); color:#f59e0b; }
+  .sub-actions { display:flex; gap:4px; }
+  .sub-actions button { font-size:11px; padding:4px 10px; border:1px solid var(--border); background:var(--surface); color:var(--muted); border-radius:6px; cursor:pointer; font-family:inherit; }
+  .sub-actions button:hover { border-color:var(--accent2); color:var(--accent2); }
+  .sub-actions button.del:hover { border-color:var(--red); color:var(--red); }
+  .empty { text-align:center; padding:30px; color:var(--muted); font-size:13px; }
+  .back { text-align:center; margin-top:16px; }
+  .back a { color:var(--muted); font-size:13px; text-decoration:none; }
+  .online-badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:99px; margin-inline-start:8px; display:inline-block; transition:.25s }
+  .online-badge.is-online { color:#10b981; background:rgba(16,185,129,.13); border:1px solid rgba(16,185,129,.35); animation:onlinePulse 2s ease-in-out infinite }
+  .online-badge.is-offline { color:#6b7280; background:rgba(107,114,128,.10); border:1px solid rgba(107,114,128,.25) }
+  @keyframes onlinePulse { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.35)} 50%{box-shadow:0 0 0 6px rgba(16,185,129,0)} }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>👑 إدارة <span>الاشتراكات</span></h1>
+  <p class="subtitle">إضافة وتعديل وحذف المشتركين</p>
+
+  <div class="stats" id="stats">
+    <div class="stat"><div class="stat-num" id="total-count">0</div><div class="stat-label">إجمالي</div></div>
+    <div class="stat"><div class="stat-num" id="active-count" style="color:var(--green)">0</div><div class="stat-label">نشط</div></div>
+    <div class="stat"><div class="stat-num" id="expired-count" style="color:#f59e0b">0</div><div class="stat-label">منتهي</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">➕ إضافة مشترك يدوي</div>
+    <div class="add-form">
+      <input type="text" id="add-name" placeholder="الاسم">
+      <input type="email" id="add-email" placeholder="البريد">
+      <input type="number" id="add-days" placeholder="عدد الأيام" value="30" min="1" style="max-width:100px">
+      <button class="btn btn-add" onclick="addManual()">+ إضافة</button>
+    </div>
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:12px;color:var(--muted);user-select:none">🔧 خيارات متقدمة (مفتاح مخصص)</summary>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="add-custom-key" placeholder="مفتاح مخصص (اختياري — مثل sub_abc123)" style="flex:1;min-width:220px;direction:ltr;text-align:left">
+        <button class="btn" style="background:var(--surface2);color:var(--muted)" onclick="useLastDeletedKey()" id="last-deleted-btn" disabled>📋 آخر مفتاح محذوف</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">اتركه فارغ لتوليد مفتاح عشوائي، أو ضع مفتاح يدوي لإعادة استخدام مفتاح محذوف</div>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 المشتركين</div>
+    <div class="sub-list" id="sub-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📩 رسائل الدعم</div>
+    <div id="messages-list"><div class="empty">جاري التحميل...</div></div>
+  </div>
+
+  <div class="back"><a href="/admin.html">← رجوع للأدمن</a></div>
+</div>
+<script>
+const _sp = new URLSearchParams(location.search);
+const _urlPw = _sp.get('pw');
+if (_urlPw) {
+  localStorage.setItem('owner_password', _urlPw);
+  const cu = new URL(location.href);
+  cu.searchParams.delete('pw');
+  history.replaceState({}, '', cu.pathname + (cu.search || '') + (cu.hash || ''));
+}
+const pw = _urlPw || localStorage.getItem('owner_password') || '';
+
+async function loadSubs() {
+  const res = await fetch('/api/subscribers?pw=' + encodeURIComponent(pw));
+  if (res.status === 403) { alert('كلمة المرور خاطئة'); window.location.href = '/login.html'; return; }
+  const list = await res.json();
+  renderSubs(list);
+  updateLastDeletedBtn();
+}
+
+function renderSubs(list) {
+  document.getElementById('total-count').textContent = list.length;
+  document.getElementById('active-count').textContent = list.filter(s => s.active && !s.isExpired).length;
+  document.getElementById('expired-count').textContent = list.filter(s => s.isExpired).length;
+
+  const el = document.getElementById('sub-list');
+  if (!list.length) { el.innerHTML = '<div class="empty">لا يوجد مشتركين</div>'; return; }
+
+  el.innerHTML = list.map(s => {
+    const statusCls = s.isExpired ? 'expired-status' : s.active ? 'active' : 'inactive';
+    const statusText = s.isExpired ? 'منتهي' : s.active ? 'نشط' : 'معطل';
+    const onlineCls = s.online ? 'is-online' : 'is-offline';
+    const onlineText = s.online ? (s.tabs > 1 ? `🟢 متصل (${s.tabs})` : '🟢 متصل') : '⚫ غير متصل';
+    return `
+      <div class="sub-item ${s.isExpired ? 'expired' : ''}" data-key="${s.key}">
+        <div class="sub-key" onclick="navigator.clipboard.writeText('${s.key}')" title="انقر للنسخ">${s.key}</div>
+        <div class="sub-info">
+          <div class="sub-name">${esc(s.name || '—')} <span class="online-badge ${onlineCls}" data-online>${onlineText}</span></div>
+          <div class="sub-email">${esc(s.email || '—')}</div>
+          <div style="font-size:11px;color:#0891b2;margin-top:2px">🎮 @${esc(s.tiktokUsername || '—')}</div>
+          <div class="sub-dates">إنشاء: ${new Date(s.createdAt).toLocaleDateString('ar-SA')} | انتهاء: ${new Date(s.expiresAt).toLocaleDateString('ar-SA')}</div>
+        </div>
+        <span class="sub-status ${statusCls}">${statusText}</span>
+        <div class="sub-actions">
+          <button onclick="toggleSub('${s.key}')">${s.active ? '⏸ تعطيل' : '▶ تفعيل'}</button>
+          <button onclick="extendSub('${s.key}')">+30 يوم</button>
+          <button onclick="changeUsername('${s.key}','${esc(s.tiktokUsername||'')}')">✏️ يوزر</button>
+          <button onclick="unbindDevice('${s.key}')" title="فك ربط الجهاز"${s.deviceId ? '' : ' disabled style="opacity:.3"'}>📱 فك</button>
+          <button class="del" onclick="deleteSub('${s.key}')">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function addManual() {
+  const name = document.getElementById('add-name').value.trim();
+  const email = document.getElementById('add-email').value.trim();
+  const days = document.getElementById('add-days').value || 30;
+  const customKey = document.getElementById('add-custom-key').value.trim();
+  const res = await fetch('/api/subscribers/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ pw, name, email, days, customKey }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    const msg = data.customized
+      ? 'تم إعادة إنشاء المشترك بنفس المفتاح القديم:\n' + data.key
+      : 'تم إضافة المشترك! المفتاح:\n' + data.key;
+    alert(msg);
+    document.getElementById('add-name').value = '';
+    document.getElementById('add-email').value = '';
+    document.getElementById('add-custom-key').value = '';
+    // امسح آخر مفتاح محذوف من الذاكرة لو تم استخدامه
+    if (customKey && customKey === localStorage.getItem('lastDeletedKey')) {
+      localStorage.removeItem('lastDeletedKey');
+      updateLastDeletedBtn();
+    }
+    loadSubs();
+  } else if (data.error) {
+    alert('❌ ' + data.error);
+  }
+}
+
+// تذكّر آخر مفتاح محذوف لإمكانية إعادة استخدامه
+function updateLastDeletedBtn() {
+  const btn = document.getElementById('last-deleted-btn');
+  if (!btn) return;
+  const last = localStorage.getItem('lastDeletedKey');
+  if (last) {
+    btn.disabled = false;
+    btn.title = 'إدراج المفتاح: ' + last;
+    btn.style.color = 'var(--text)';
+  } else {
+    btn.disabled = true;
+    btn.title = 'لا يوجد مفتاح محذوف مؤخراً';
+    btn.style.color = 'var(--muted)';
+  }
+}
+
+function useLastDeletedKey() {
+  const last = localStorage.getItem('lastDeletedKey');
+  if (!last) return;
+  document.getElementById('add-custom-key').value = last;
+  document.querySelector('details').open = true;
+}
+
+async function toggleSub(key) {
+  await fetch('/api/subscribers/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ pw, key }) });
+  loadSubs();
+}
+
+async function extendSub(key) {
+  await fetch('/api/subscribers/extend', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ pw, key, days:30 }) });
+  loadSubs();
+}
+
+async function deleteSub(key) {
+  if (!confirm('حذف المشترك ' + key + '؟\n\n💡 المفتاح سيُحفظ مؤقتاً في هذا المتصفح بحيث تقدر تعيد استخدامه عند إضافة مشترك جديد.')) return;
+  const r = await fetch('/api/subscribers/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ pw, key }) });
+  if (r.ok) {
+    // احفظ المفتاح في localStorage عشان يقدر يستخدمه لاحقاً
+    localStorage.setItem('lastDeletedKey', key);
+    updateLastDeletedBtn();
+    // انسخه للحافظة بهدوء
+    if (navigator.clipboard) navigator.clipboard.writeText(key).catch(()=>{});
+  }
+  loadSubs();
+}
+
+async function unbindDevice(key) {
+  if (!confirm('فك ربط الجهاز لهذا المشترك؟ بيقدر يسجل دخول من أي جهاز جديد.')) return;
+  await fetch('/api/subscribers/unbind-device', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ pw, key }) });
+  loadSubs();
+}
+
+async function changeUsername(key, current) {
+  const newUser = prompt('اليوزرنيم الحالي: @' + (current||'—') + '\n\nادخل اليوزرنيم الجديد:', current);
+  if (!newUser || newUser === current) return;
+  const res = await fetch('/api/subscribers/change-username', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ pw, key, username: newUser }) });
+  const data = await res.json();
+  if (data.ok) { alert('تم تغيير اليوزرنيم إلى @' + data.username); loadSubs(); }
+  else alert(data.error || 'حصل خطأ');
+}
+
+async function loadMessages() {
+  const res = await fetch('/api/messages?pw=' + encodeURIComponent(pw));
+  const list = await res.json();
+  const el = document.getElementById('messages-list');
+  if (!list.length) { el.innerHTML = '<div class="empty">لا توجد رسائل</div>'; return; }
+  el.innerHTML = list.reverse().map(m => `
+    <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:700;font-size:13px">${esc(m.name)}</span>
+        <span style="font-size:10px;color:var(--muted)">${new Date(m.createdAt).toLocaleString('ar-SA')}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${esc(m.email)} | ${esc(m.key)} | @${esc(m.tiktokUsername)}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--accent2);margin-bottom:4px">${esc(m.subject)}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.6">${esc(m.message)}</div>
+    </div>
+  `).join('');
+}
+
+loadSubs();
+loadMessages();
+</script>
+<div style="text-align:center;padding:20px 16px;font-size:11px;color:#444;margin-top:24px;border-top:1px solid rgba(255,255,255,.06);width:100%">© 2026 BthLab. جميع الحقوق محفوظة.</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// 🟢 تحديث لحظي لحالة الاتصال
+(function(){
+  var sock = io({ auth: { pw: pw } });
+  function setOnline(key, online, tabs) {
+    var item = document.querySelector('.sub-item[data-key="'+CSS.escape(key)+'"]');
+    if (!item) return;
+    var badge = item.querySelector('[data-online]');
+    if (!badge) return;
+    badge.classList.toggle('is-online', !!online);
+    badge.classList.toggle('is-offline', !online);
+    badge.textContent = online ? (tabs > 1 ? '🟢 متصل ('+tabs+')' : '🟢 متصل') : '⚫ غير متصل';
+  }
+  sock.on('subs:snapshot', function(snap) {
+    Object.keys(snap).forEach(function(k) { setOnline(k, true, snap[k]); });
+  });
+  sock.on('subs:online', function(d) { setOnline(d.key, d.online, d.tabs); });
+})();
+</script>
+</body>
+</html>

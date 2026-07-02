@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎯 التصويت — BthLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root { --bg:#0a0a0f; --surface:#111118; --surface2:#1a1a24; --border:rgba(255,255,255,.08); --accent:#ff0050; --accent2:#0891b2; --text:#f0f0f5; --muted:#666; --green:#1dba72; --amber:#f59e0b; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; min-height:100vh; }
+header { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; justify-content:space-between; }
+.logo { font-size:18px; font-weight:700; } .logo span { color:var(--accent); }
+.container { max-width:700px; margin:0 auto; padding:20px 16px; display:flex; flex-direction:column; gap:14px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; }
+.card-title { font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+.how-box { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:14px; font-size:13px; color:rgba(255,255,255,.6); line-height:2; border-right:3px solid var(--accent2); }
+.how-box strong { color:var(--accent2); }
+.field { margin-bottom:12px; }
+label { font-size:13px; color:#aaa; display:block; margin-bottom:6px; }
+input[type=text], input[type=number] { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:inherit; font-size:14px; padding:10px 14px; border-radius:8px; outline:none; }
+input:focus { border-color:var(--accent2); }
+.btn { border:none; font-family:inherit; font-size:14px; font-weight:700; padding:12px; border-radius:10px; cursor:pointer; width:100%; transition:all .15s; }
+.btn:hover { opacity:.85; }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn-start { background:var(--green); color:#fff; }
+.btn-stop { background:var(--accent); color:#fff; }
+.btn-add { background:var(--surface2); border:1px solid var(--border); color:var(--accent2); font-size:13px; padding:8px; }
+.options-list { display:flex; flex-direction:column; gap:8px; margin:10px 0; }
+.option-row { display:flex; align-items:center; gap:8px; }
+.option-num { width:28px; height:28px; border-radius:50%; background:var(--surface2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--muted); flex-shrink:0; }
+.option-row input { flex:1; }
+.remove-opt { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:4px 8px; }
+.remove-opt:hover { color:var(--accent); }
+.timer-display { text-align:center; font-size:28px; font-weight:900; color:var(--accent2); padding:8px; }
+.votes-count { text-align:center; font-size:14px; color:var(--muted); }
+.results-bar { display:flex; flex-direction:column; gap:8px; margin:14px 0; }
+.result-row { display:flex; align-items:center; gap:10px; }
+.result-label { font-size:14px; font-weight:600; min-width:80px; text-align:right; }
+.result-bar-wrap { flex:1; height:28px; background:var(--surface2); border-radius:8px; overflow:hidden; position:relative; }
+.result-bar-fill { height:100%; border-radius:8px; transition:width .5s ease; display:flex; align-items:center; justify-content:flex-end; padding:0 8px; }
+.result-pct { font-size:12px; font-weight:700; color:#fff; }
+.result-count { font-size:12px; color:var(--muted); width:50px; }
+.overlay-link { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-family:monospace; font-size:12px; color:var(--accent2); word-break:break-all; cursor:pointer; }
+@media(max-width:500px){
+  .container{padding:14px 10px;gap:10px}
+  .card{padding:14px}
+  header{padding:12px 14px}
+  .how-box{font-size:12px;padding:10px 12px}
+  .option-row input{font-size:13px;padding:8px 10px}
+  .timer-display{font-size:24px}
+  .result-label{min-width:60px;font-size:12px}
+  .result-bar-wrap{height:24px}
+}
+
+  .open-overlay-btn { display:inline-flex; align-items:center; gap:7px; background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; border:none; font-family:inherit; font-size:13px; font-weight:900; padding:9px 16px; border-radius:10px; cursor:pointer; text-decoration:none; transition:.2s; box-shadow:0 8px 20px -8px #8b5cf6; }
+  .open-overlay-btn:hover { transform:translateY(-2px); box-shadow:0 12px 26px -8px #8b5cf6; }
+  .overlay-actions { display:flex; gap:8px; align-items:stretch; margin-top:6px; flex-wrap:wrap; }
+  .overlay-actions .overlay-link { flex:1; min-width:0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🎯 التصويت <span>Control</span></div>
+  <div style="font-size:13px;color:var(--muted)" id="status-text">غير متصل</div>
+</header>
+<div class="container">
+
+  <div class="how-box">
+    <strong>📖 كيف تشتغل الفعالية:</strong><br>
+    1. اكتب سؤال التصويت وأضف الخيارات (2-6 خيارات)<br>
+    2. حدد مدة التصويت واضغط ابدأ<br>
+    3. المشاهدين يصوتون في الشات بكتابة <strong>رقم الخيار</strong> (1، 2، 3...)<br>
+    4. كل شخص يصوت مرة وحدة — النتائج تتحدث لحظياً على الشاشة 📊<br>
+    <strong>الفرق عن Quiz:</strong> ما فيه جواب صحيح — التصويت لقياس رأي الجمهور
+  </div>
+
+  <div class="card">
+    <div class="card-title">سؤال التصويت</div>
+    <div class="field">
+      <label>اكتب السؤال</label>
+      <input type="text" id="question-input" placeholder="مثال: وش تبون الفعالية الجاية؟">
+    </div>
+    <label>الخيارات</label>
+    <div class="options-list" id="options-list">
+      <div class="option-row"><span class="option-num">1</span><input type="text" placeholder="الخيار الأول" class="option-input"><button class="remove-opt" onclick="removeOpt(this)" title="حذف">✕</button></div>
+      <div class="option-row"><span class="option-num">2</span><input type="text" placeholder="الخيار الثاني" class="option-input"><button class="remove-opt" onclick="removeOpt(this)" title="حذف">✕</button></div>
+    </div>
+    <button class="btn btn-add" onclick="addOption()">+ أضف خيار</button>
+    <div class="field" style="margin-top:14px">
+      <label>⏱ مدة التصويت (ثانية)</label>
+      <input type="number" id="timer-input" value="60" min="10" max="300">
+    </div>
+    <button class="btn btn-start" id="start-btn" onclick="startPoll()">▶ ابدأ التصويت</button>
+  </div>
+
+  <div class="card" id="live-card" style="display:none">
+    <div class="card-title">التصويت الحالي</div>
+    <div class="timer-display" id="timer-display">01:00</div>
+    <div class="votes-count" id="votes-count">0 صوت</div>
+    <div class="results-bar" id="results-bar"></div>
+    <button class="btn btn-stop" onclick="stopPoll()" style="margin-top:12px">⏹ أنهِ التصويت</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔗 رابط الأوفرلي</div>
+    <div class="overlay-actions"><div class="overlay-link" id="overlay-link" onclick="copyLink()">اتصل بالبث أولاً</div><a class="open-overlay-btn" href="#" id="open-overlay-link" target="_blank" rel="noopener" onclick="return openOverlayInNewTab(this)">🚀 فتح الأوفرلاي</a></div>
+  </div>
+</div>
+
+<script>
+
+// 🔒 sanitize URL — حفظ المفاتيح وتنظيف الرابط
+(function(){
+  var p = new URLSearchParams(location.search);
+  var k = p.get('key'), pw = p.get('pw');
+  if (k) localStorage.setItem('subscription_key', k);
+  if (pw) localStorage.setItem('owner_password', pw);
+  if (k || pw) {
+    var cu = new URL(location.href);
+    cu.searchParams.delete('key'); cu.searchParams.delete('pw');
+    history.replaceState({}, '', cu.pathname + (cu.search || '') + (cu.hash || ''));
+  }
+})();
+
+const params = new URLSearchParams(location.search);
+const username = params.get('username') || '';
+const __auth = (function(){ var p = new URLSearchParams(location.search); return { key: p.get('key')||'', pw: p.get('pw')||'' }; })();
+const socket = io({ auth: __auth });
+let pollTimer = null;
+let pollEndTime = 0;
+const barColors = ['#ff0050','#0891b2','#ffd700','#1dba72','#a57afa','#f59e0b'];
+
+if (username) {
+  socket.emit('join', { username });
+  document.getElementById('status-text').textContent = '@' + username;
+  document.getElementById('overlay-link').textContent = location.origin + '/poll-overlay.html?username=' + username;
+}
+
+function renumberOptions() {
+  document.querySelectorAll('.option-row').forEach((row, i) => {
+    row.querySelector('.option-num').textContent = i + 1;
+  });
+}
+
+function addOption() {
+  const list = document.getElementById('options-list');
+  const count = list.children.length;
+  if (count >= 6) return;
+  const row = document.createElement('div');
+  row.className = 'option-row';
+  row.innerHTML = `<span class="option-num">${count+1}</span><input type="text" placeholder="خيار جديد" class="option-input"><button class="remove-opt" onclick="removeOpt(this)" title="حذف">✕</button>`;
+  list.appendChild(row);
+  renumberOptions();
+}
+
+function removeOpt(btn) {
+  const list = document.getElementById('options-list');
+  if (list.children.length <= 2) return;
+  btn.closest('.option-row').remove();
+  renumberOptions();
+}
+
+async function startPoll() {
+  const question = document.getElementById('question-input').value.trim();
+  if (!question) return alert('اكتب سؤال التصويت');
+  const inputs = document.querySelectorAll('.option-input');
+  const options = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+  if (options.length < 2) return alert('أضف خيارين على الأقل');
+  const timer = parseInt(document.getElementById('timer-input').value) || 60;
+
+  await fetch('/api/poll/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, question, options, timer }) });
+
+  document.getElementById('live-card').style.display = 'block';
+  document.getElementById('start-btn').disabled = true;
+  pollEndTime = Date.now() + timer * 1000;
+  startCountdown();
+  renderResults({}, 0, options);
+}
+
+async function stopPoll() {
+  await fetch('/api/poll/stop', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username }) });
+  if (pollTimer) clearInterval(pollTimer);
+  document.getElementById('start-btn').disabled = false;
+}
+
+function startCountdown() {
+  if (pollTimer) clearInterval(pollTimer);
+  updateCountdown();
+  pollTimer = setInterval(updateCountdown, 200);
+}
+
+function updateCountdown() {
+  const remain = Math.max(0, pollEndTime - Date.now());
+  const sec = Math.ceil(remain / 1000);
+  document.getElementById('timer-display').textContent = String(Math.floor(sec/60)).padStart(2,'0') + ':' + String(sec%60).padStart(2,'0');
+  if (remain <= 0 && pollTimer) { clearInterval(pollTimer); document.getElementById('start-btn').disabled = false; }
+}
+
+socket.on('poll:vote', (data) => {
+  document.getElementById('votes-count').textContent = data.totalVotes + ' صوت';
+  const inputs = document.querySelectorAll('.option-input');
+  const options = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+  renderResults(data.results, data.totalVotes, options);
+});
+
+socket.on('poll:end', (data) => {
+  if (pollTimer) clearInterval(pollTimer);
+  document.getElementById('votes-count').textContent = 'انتهى — ' + data.totalVotes + ' صوت';
+  document.getElementById('start-btn').disabled = false;
+});
+
+function renderResults(results, total, options) {
+  const bar = document.getElementById('results-bar');
+  const t = total || 1;
+  bar.innerHTML = options.map((o, i) => {
+    const count = results[i] || 0;
+    const pct = Math.round((count / t) * 100);
+    return `<div class="result-row">
+      <div class="result-label">${esc(o)}</div>
+      <div class="result-bar-wrap"><div class="result-bar-fill" style="width:${pct}%;background:${barColors[i%barColors.length]}"><span class="result-pct">${pct > 5 ? pct+'%' : ''}</span></div></div>
+      <div class="result-count">${count} صوت</div>
+    </div>`;
+  }).join('');
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(document.getElementById('overlay-link').textContent);
+  document.getElementById('overlay-link').style.color='#1dba72';
+  setTimeout(()=>document.getElementById('overlay-link').style.color='',1500);
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Open overlay in new tab (BthLab) ───────────────────
+function openOverlayInNewTab(a) {
+  var el = document.getElementById('overlay-link');
+  var url = (el && el.textContent || '').trim();
+  if (!url || url.indexOf('http') !== 0) {
+    alert('اتصل بالبث أولاً للحصول على رابط الأوفرلاي');
+    return false;
+  }
+  a.href = url;
+  return true;
+}
+// حدّث href تلقائياً إذا تغيّر النص (مرّة كل ثانية يكفي ولا يحمّل شي)
+setInterval(function() {
+  var el = document.getElementById('overlay-link');
+  var btn = document.getElementById('open-overlay-link');
+  if (!el || !btn) return;
+  var url = (el.textContent || '').trim();
+  if (url.indexOf('http') === 0 && btn.getAttribute('href') !== url) btn.setAttribute('href', url);
+}, 1000);
+
+</script>
+<div style="text-align:center;padding:20px 16px;font-size:11px;color:#444;margin-top:24px;border-top:1px solid rgba(255,255,255,.06);width:100%">© 2026 BthLab. جميع الحقوق محفوظة.</div>
+</body>
+</html>

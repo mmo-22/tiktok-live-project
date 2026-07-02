@@ -1,96 +1,578 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>لوحة التحكم</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css" />
-  <style>
-    .nav-links { display:flex; gap:10px; }
-    .nav-link { color:#22d3ee; text-decoration:none; font-size:13px; font-weight:700; padding:6px 14px; border:1px solid rgba(34,211,238,0.3); border-radius:8px; transition:all .2s; }
-    .nav-link:hover { background:rgba(34,211,238,0.1); }
-    .links-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
-    .link-card { background:#13131e; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:14px; }
-    .link-card h4 { font-size:14px; margin-bottom:4px; color:#e2e8f0; }
-    .link-card p { font-size:11px; color:#64748b; margin-bottom:10px; }
-    .link-url { font-family:monospace; font-size:11px; color:#22d3ee; word-break:break-all; background:#0d0d14; padding:8px 10px; border-radius:6px; margin-bottom:8px; }
-    .link-copy { background:#0891b2; color:#fff; border:none; padding:6px 14px; border-radius:6px; font-family:'Tajawal'; font-size:12px; font-weight:700; cursor:pointer; width:100%; }
-    .link-copy:hover { background:#22d3ee; color:#000; }
-    @media(max-width:600px) { .links-grid { grid-template-columns:1fr; } }
-  </style>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — BthLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  :root { --bg:#06060b; --surface:#0c0c16; --surface2:#10101c; --border:rgba(255,255,255,.07); --accent:#ff0050; --accent2:#06b6d4; --text:#e9eef5; --muted:#8b93a7; --green:#10b981; --red:#ef4444; --gold:#f59e0b; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:radial-gradient(70% 40% at 50% 0%,rgba(8,145,178,.10),transparent 60%),var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; min-height:100vh; padding:24px 16px; }
+  .container { max-width:780px; margin:0 auto; }
+  h1 { font-size:20px; font-weight:900; margin-bottom:4px; } h1 span { background:linear-gradient(90deg,#22d3ee,#a78bfa); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .subtitle { color:var(--muted); font-size:13px; margin-bottom:22px; }
+  .subtitle a { color:var(--accent2); text-decoration:none; }
+  .ver-badge { font-size:10.5px; font-weight:900; color:var(--accent2); background:rgba(6,182,212,.1); border:1px solid rgba(6,182,212,.3); padding:4px 11px; border-radius:99px; }
+  .add-box { display:flex; gap:10px; margin-bottom:12px; }
+  .add-box input { flex:1; background:var(--surface); border:1px solid var(--border); color:var(--text); font-family:inherit; font-size:15px; padding:12px 16px; border-radius:13px; outline:none; direction:ltr; transition:border-color .2s; }
+  .add-box input:focus { border-color:var(--accent2); box-shadow:0 0 0 3px rgba(6,182,212,.12); }
+  .add-box input::placeholder { color:var(--muted); }
+  .btn { background:linear-gradient(135deg,var(--accent2),#0891b2); color:#021018; border:none; font-family:inherit; font-size:14px; font-weight:900; padding:12px 24px; border-radius:13px; cursor:pointer; white-space:nowrap; transition:.2s; box-shadow:0 10px 24px -10px var(--accent2); }
+  .btn:hover { transform:translateY(-2px); }
+  .rooms { display:flex; flex-direction:column; gap:14px; }
+
+  /* ═══ بنتو غريد ═══ */
+  .bento { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .bx { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px; transition:.2s; position:relative; overflow:hidden; }
+  .bx:hover { border-color:rgba(255,255,255,.16); }
+  .bx.hero { grid-column:span 2; grid-row:span 2; display:flex; flex-direction:column; justify-content:space-between; background:radial-gradient(130% 130% at 85% 0%,rgba(6,182,212,.16),transparent 55%),var(--surface); }
+  .bx.hero.connected { background:radial-gradient(130% 130% at 85% 0%,rgba(16,185,129,.16),transparent 55%),var(--surface); border-color:rgba(16,185,129,.28); }
+  .bx.hero.error, .bx.hero.disconnected, .bx.hero.ended { background:radial-gradient(130% 130% at 85% 0%,rgba(239,68,68,.13),transparent 55%),var(--surface); }
+  .hero-top { display:flex; align-items:flex-start; gap:11px; }
+  .status-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; margin-top:6px; }
+  .status-dot.connected { background:var(--green); box-shadow:0 0 10px var(--green); animation:pulse 1.5s infinite; }
+  .status-dot.connecting,.status-dot.retrying { background:var(--gold); animation:pulse .8s infinite; }
+  .status-dot.error,.status-dot.ended,.status-dot.disconnected { background:var(--red); }
+  .status-dot.idle { background:var(--muted); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .room-name { font-size:18px; font-weight:900; direction:ltr; text-align:right; }
+  .room-meta { font-size:12px; color:var(--muted); margin-top:2px; font-weight:700; }
+  .top-btn { background:var(--surface2); border:1px solid var(--border); color:var(--muted); font-size:12px; font-weight:800; padding:8px 16px; border-radius:10px; cursor:pointer; font-family:inherit; transition:.2s; align-self:flex-start; }
+  .top-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .top-btn.remove { color:var(--red); border-color:rgba(239,68,68,.25); margin-right:auto; }
+  .top-btn.remove:hover { background:rgba(239,68,68,.1); }
+  .bx.stat::after { content:''; position:absolute; top:0; inset-inline-start:0; width:100%; height:2px; background:linear-gradient(90deg,var(--c,#06b6d4),transparent); }
+  .bx.stat .v { font-size:23px; font-weight:900; color:var(--c,#06b6d4); font-variant-numeric:tabular-nums; transition:transform .18s ease; }
+  .bx.stat .v.bump { transform:scale(1.12); }
+  .bx.stat .l { font-size:11px; color:var(--muted); font-weight:700; margin-top:2px; }
+  .games-label { grid-column:1/-1; font-size:12px; color:var(--muted); font-weight:800; margin-top:4px; }
+  .bx.game { grid-column:span 2; display:flex; align-items:center; gap:12px; text-decoration:none; cursor:pointer; }
+  .bx.game:hover { transform:translateY(-3px); border-color:color-mix(in srgb,var(--c,#06b6d4) 50%,transparent); box-shadow:0 14px 30px -14px color-mix(in srgb,var(--c,#06b6d4) 55%,transparent); }
+  .bx.game .gi { width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; background:color-mix(in srgb,var(--c,#06b6d4) 13%,transparent); }
+  .bx.game .gn { font-size:14px; font-weight:800; color:var(--text); }
+  .bx.game .gs { font-size:10.5px; color:var(--muted); font-weight:700; }
+  .bx.game .go { margin-right:auto; width:30px; height:30px; border-radius:99px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--muted); transition:.2s; flex-shrink:0; }
+  .bx.game:hover .go { background:var(--c,#06b6d4); color:#021018; border-color:transparent; transform:translateX(-3px); }
+
+  .empty { text-align:center; color:var(--muted); padding:40px; font-size:14px; background:var(--surface); border:1px dashed var(--border); border-radius:18px; }
+  .mode-badge { font-size:11px; font-weight:800; padding:4px 11px; border-radius:20px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--border); color:var(--text); padding:10px 20px; border-radius:12px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:100; backdrop-filter:blur(10px); }
+  .toast.show { opacity:1; }
+  .link-row { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--surface2); border-radius:10px; }
+  .link-row .link-icon { font-size:20px; flex-shrink:0; }
+  .link-row .link-info { flex:1; min-width:0; }
+  .link-row .link-name { font-size:13px; font-weight:700; color:var(--text); }
+  .link-row .link-url { font-size:10px; color:var(--muted); font-family:monospace; direction:ltr; text-align:left; word-break:break-all; margin-top:2px; }
+  .link-row .link-copy { background:var(--accent2); color:#021018; border:none; font-family:inherit; font-size:11px; font-weight:700; padding:6px 14px; border-radius:8px; cursor:pointer; flex-shrink:0; transition:all .15s; }
+  .link-row .link-copy:hover { opacity:.85; }
+  .link-row .link-copy.copied { background:var(--green); color:#fff; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:18px 20px; }
+  /* Guide */
+  .guide-section { margin-bottom:20px; }
+  .guide-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 18px; cursor:pointer; font-family:inherit; color:var(--text); font-size:15px; font-weight:700; }
+  .guide-toggle:hover { border-color:rgba(255,255,255,.15); }
+  .guide-toggle .arrow { transition:transform .2s; font-size:12px; color:var(--muted); }
+  .guide-toggle.open .arrow { transform:rotate(180deg); }
+  .guide-body { display:none; background:var(--surface); border:1px solid var(--border); border-top:none; border-radius:0 0 14px 14px; padding:0 18px 18px; }
+  .guide-toggle.open { border-radius:14px 14px 0 0; }
+  .guide-body.open { display:block; }
+  .guide-step { padding:14px 0; border-bottom:1px solid var(--border); }
+  .guide-step:last-child { border-bottom:none; }
+  .guide-step-num { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:900; margin-left:10px; flex-shrink:0; }
+  .guide-step-title { font-size:14px; font-weight:700; color:var(--text); display:inline; }
+  .guide-step-desc { font-size:12px; color:rgba(255,255,255,.5); margin-top:6px; line-height:1.9; padding-right:36px; }
+  .guide-game { display:flex; align-items:flex-start; gap:10px; padding:10px 0; }
+  .guide-game-icon { font-size:22px; flex-shrink:0; margin-top:2px; }
+  .guide-game-info { flex:1; }
+  .guide-game-name { font-size:13px; font-weight:700; color:var(--accent2); }
+  .guide-game-desc { font-size:11px; color:rgba(255,255,255,.45); margin-top:2px; line-height:1.7; }
+  .guide-divider { font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.5px; text-transform:uppercase; margin:14px 0 8px; padding-top:8px; border-top:1px solid var(--border); }
+  @media(max-width:500px){
+    body{padding:16px 10px}
+    h1{font-size:17px}
+    .add-box{flex-direction:column;gap:8px;margin-bottom:12px}
+    .add-box input{font-size:14px;padding:11px 12px}
+    .btn{width:100%;text-align:center;padding:13px}
+    .bento{grid-template-columns:repeat(2,1fr);gap:9px}
+    .bx{padding:13px}
+    .bx.stat .v{font-size:18px}
+    .room-name{font-size:15px}
+    .bx.game .gi{width:38px;height:38px;font-size:18px}
+    .bx.game .gn{font-size:12.5px}
+    .link-row{flex-direction:column;align-items:stretch;gap:6px}
+    .link-row .link-copy{width:100%;text-align:center;padding:8px}
+    .guide-step-desc{padding-right:0}
+    .guide-game{flex-direction:column;gap:4px}
+    .guide-toggle{font-size:14px;padding:12px 14px}
+    .keywords-row{flex-direction:column}
+  }
+</style>
 </head>
 <body>
-
-  <header class="header">
-    <div class="header-inner">
-      <div class="logo">🎮 لوحة التحكم</div>
-      <div class="nav-links">
-        <a class="nav-link" id="wheelPageLink" href="/wheel">🎡 العجلة</a>
-        <a class="nav-link" href="/obs">🔗 OBS Generator</a>
-      </div>
-      <div class="status-badge" id="statusBadge">غير متصل</div>
+<div class="container">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <h1><img src="/logo.svg" alt="BthLab" style="height:32px;vertical-align:middle;margin-left:6px"> <span>BthLab</span></h1>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="ver-badge" id="ver-badge">v—</span>
+      <span class="mode-badge" id="mode-badge" style="background:var(--accent2);color:#021018">🎫 مشترك</span>
+      <button onclick="logout()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🚪 خروج</button>
     </div>
-  </header>
+  </div>
+  <p class="subtitle" id="subtitle">حساب واحد فقط لكل مشترك</p>
 
-  <main class="main">
+  <!-- Guide Section -->
+  <div class="guide-section">
+    <button class="guide-toggle" id="guide-toggle" onclick="toggleGuide()">
+      <span>📖 دليل الاستخدام والفعاليات</span>
+      <span class="arrow">▼</span>
+    </button>
+    <div class="guide-body" id="guide-body">
 
-    <!-- Connect -->
-    <section class="card">
-      <h2 class="card-title">🔗 الاتصال بحساب TikTok</h2>
-      <div class="connect-row">
-        <input type="text" id="usernameInput" class="input" placeholder="@اسم_المستخدم" autocomplete="off" />
-        <button class="btn btn-primary" id="connectBtn" onclick="connectTikTok()">اتصال</button>
-        <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectTikTok()" style="display:none">قطع</button>
+      <div class="guide-step">
+        <span class="guide-step-num">1</span>
+        <span class="guide-step-title">اتصل بحسابك</span>
+        <div class="guide-step-desc">اكتب يوزرنيم تيك توك حقك في الحقل بالأسفل (بدون @) واضغط "اتصل". السيرفر يتصل ببثك تلقائي وتظهر لك الإحصائيات.</div>
       </div>
-      <div class="room-info" id="roomInfo" style="display:none">
-        <span id="viewerCount">👁 0</span>
-        <span id="likeCount">❤️ 0</span>
-        <span id="commentCount">💬 0</span>
-        <span id="giftCount">🎁 0</span>
-        <span id="diamondCount">💎 0</span>
-        <span id="shareCount">🔗 0</span>
-        <span id="followerCount">➕ 0</span>
-      </div>
-    </section>
 
-    <!-- OBS Links — visible after connect -->
-    <section class="card" id="linksCard" style="display:none">
-      <h2 class="card-title">🔗 روابط الأوفرلي — جاهزة لـ OBS</h2>
-      <p style="font-size:13px;color:#64748b;margin-bottom:0">ضع هذي الروابط في OBS كـ Browser Source</p>
-      <div class="links-grid">
-        <div class="link-card">
-          <h4>💬 أوفرلي التعليقات</h4>
-          <p>يعرض التعليقات مباشرة — 1920×1080</p>
-          <div class="link-url" id="chatOverlayUrl"></div>
-          <button class="link-copy" onclick="copyLink('chatOverlayUrl')">📋 نسخ</button>
+      <div class="guide-step">
+        <span class="guide-step-num">2</span>
+        <span class="guide-step-title">أضف الـ Overlay في OBS</span>
+        <div class="guide-step-desc">بعد الاتصال، انسخ رابط الأوفرلي من قسم "🔗 روابطك الجاهزة" بالأسفل. في OBS أو StreamLabs: أضف مصدر جديد ← Browser Source ← الصق الرابط ← العرض 1920 والارتفاع 1080. الرابط ثابت ومربوط بمفتاحك — ما تحتاج تغيره كل مرة.</div>
+      </div>
+
+      <div class="guide-step">
+        <span class="guide-step-num">3</span>
+        <span class="guide-step-title">شغّل الفعاليات</span>
+        <div class="guide-step-desc">اضغط على أي فعالية من الأزرار تحت حسابك المتصل. كل فعالية تفتح في صفحة تحكم خاصة فيها — من هناك تقدر تبدأ وتوقف وتتحكم بكل شي.</div>
+      </div>
+
+      <div class="guide-step">
+        <span class="guide-step-num">4</span>
+        <span class="guide-step-title">ابدأ البث!</span>
+        <div class="guide-step-desc">افتح بثك على تيك توك بشكل عادي. السيرفر يقرأ الشات تلقائي والمشاهدين يتفاعلون مع الفعاليات مباشرة — كل شي real-time!</div>
+      </div>
+
+      <div class="guide-divider">🎮 شرح الفعاليات</div>
+
+      <div class="guide-game">
+        <div class="guide-game-icon">🎰</div>
+        <div class="guide-game-info">
+          <div class="guide-game-name">عجلة الحظ</div>
+          <div class="guide-game-desc">حدد كلمة مفتاحية (مثل "اشترك") — المشاهد يكتبها في الشات عشان ينضم. بعدين دوّر العجلة وتختار فائز عشوائي. تقدر تضيف أسماء يدوي أو تخلي الشات يسجلهم تلقائي.</div>
         </div>
-        <div class="link-card">
-          <h4>🎡 أوفرلي العجلة</h4>
-          <p>عجلة الحظ التفاعلية — 800×800</p>
-          <div class="link-url" id="wheelOverlayUrl"></div>
-          <button class="link-copy" onclick="copyLink('wheelOverlayUrl')">📋 نسخ</button>
+      </div>
+
+      <div class="guide-game">
+        <div class="guide-game-icon">🔐</div>
+        <div class="guide-game-info">
+          <div class="guide-game-name">كلمة السر</div>
+          <div class="guide-game-desc">اكتب كلمة سرية — الحرف الأول والأخير يظهرون تلقائي والباقي مخفي. اضغط "اكشف حرف" عشان تكشف حروف واحد واحد. المشاهدين يحاولون يخمنون الكلمة في الشات — أول واحد يكتبها صح يفوز!</div>
         </div>
       </div>
-    </section>
 
-    <!-- Chat Feed -->
-    <section class="card">
-      <div class="card-header">
-        <h2 class="card-title">💬 التعليقات</h2>
-        <button class="btn btn-sm" onclick="clearChat()">مسح</button>
+      <div class="guide-game">
+        <div class="guide-game-icon">⚔️</div>
+        <div class="guide-game-info">
+          <div class="guide-game-name">حرب الكلمات</div>
+          <div class="guide-game-desc">حدد كلمة دخول لكل فريق (مثل "أحمر" و"أزرق") — المشاهد يكتبها في الشات عشان ينضم لفريقه. بعدين اختر فئة (مثل فواكه أو حيوانات) وابدأ الجولة. اللاعبين يكتبون كلمات تنتمي للفئة — كل كلمة صحيحة غير مكررة = نقطة لفريقك. ينتهي الوقت والفريق اللي عنده نقاط أكثر يفوز!</div>
+        </div>
       </div>
-      <div class="chat-feed" id="chatFeed">
-        <div class="empty-state">سيظهر هنا التعليقات بعد الاتصال</div>
+
+      <div class="guide-game">
+        <div class="guide-game-icon">❓</div>
+        <div class="guide-game-info">
+          <div class="guide-game-name">سؤال وجواب</div>
+          <div class="guide-game-desc">اكتب سؤال وخيارات (2-4 خيارات) وحدد الإجابة الصحيحة والوقت. المشاهدين يجاوبون بالرقم في الشات (مثل 1 أو 2). أول واحد يجاوب صح يفوز! النتائج والنسب تظهر تلقائي.</div>
+        </div>
       </div>
-    </section>
 
-  </main>
+      <div class="guide-game">
+        <div class="guide-game-icon">🎯</div>
+        <div class="guide-game-info">
+          <div class="guide-game-name">التصويت</div>
+          <div class="guide-game-desc">اطرح سؤال بدون إجابة صحيحة (مثل "وش أحسن فريق؟") مع خيارات (2-6). المشاهدين يصوتون بالرقم — كل شخص صوت واحد. النتائج تتحدث لحظياً بأعمدة ملونة!</div>
+        </div>
+      </div>
 
-  <div class="toast" id="toast"></div>
+      <div class="guide-divider">💡 نصائح</div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/admin.js"></script>
+      <div class="guide-step-desc" style="padding-right:0;padding-bottom:4px">
+        • <strong style="color:var(--text)">الأوفرلي شفاف</strong> — حطه فوق بثك وما يغطي شي<br>
+        • <strong style="color:var(--text)">الاتصال مستمر</strong> — لو انقطع يعيد الاتصال تلقائي كل 5 ثواني<br>
+        • <strong style="color:var(--text)">الروابط ثابتة</strong> — ما تحتاج تغيرها كل بث<br>
+        • <strong style="color:var(--text)">ابدأ البث أول</strong> — السيرفر يتصل ببثك لما يكون شغال<br>
+        • <strong style="color:var(--text)">sessionid اختياري</strong> — استخدمه بس لو واجهت مشاكل بالاتصال
+      </div>
+    </div>
+  </div>
+
+  <!-- Connect box: single account -->
+  <div id="connect-section">
+    <div class="add-box">
+      <input type="text" id="session-input" placeholder="sessionid (اختياري)" dir="ltr" style="font-size:12px;opacity:.7">
+    </div>
+    <div class="add-box">
+      <input type="text" id="username-input" placeholder="@username — حساب تيك توك" dir="ltr">
+      <button class="btn" id="connect-btn" onclick="addRoom()">+ اتصل</button>
+    </div>
+  </div>
+
+  <div class="rooms" id="rooms-list">
+    <div class="empty">لا يوجد اتصال — أضف يوزرنيم تيك توك حقك فوق</div>
+  </div>
+
+  <!-- Interactive Rooms -->
+  <div class="card" style="margin-top:20px;text-align:center">
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">🎮 الغرف التفاعلية <span style="display:inline-block;font-size:10px;font-weight:900;color:#fbbf24;background:rgba(251,191,36,.13);border:1px solid rgba(251,191,36,.4);padding:2px 9px;border-radius:99px;vertical-align:middle;margin-inline-start:5px">🧪 تجريبية</span></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">أنشئ غرفة تفاعلية بدون تيك توك — شارك الرابط مع جمهورك</div>
+    <a href="/rooms.html" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:10px 24px;background:linear-gradient(135deg,#7c6bff,#ff6b9d);color:#fff;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;text-decoration:none;transition:all .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">🚀 إنشاء غرفة</a>
+  </div>
+
+  <!-- Support Form -->
+  <div class="card" style="margin-top:20px">
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px">🛟 تواصل مع الدعم</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">لتغيير اليوزرنيم أو أي استفسار — أرسل لنا رسالة وبنرد عليك بأسرع وقت</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input type="text" id="contact-name" placeholder="اسمك" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;padding:10px 14px;border-radius:8px;outline:none">
+      <input type="email" id="contact-email" placeholder="إيميلك (اختياري)" dir="ltr" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;padding:10px 14px;border-radius:8px;outline:none">
+      <select id="contact-subject" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;padding:10px 14px;border-radius:8px;outline:none;appearance:none">
+        <option value="تغيير اليوزرنيم">تغيير اليوزرنيم</option>
+        <option value="مشكلة تقنية">مشكلة تقنية</option>
+        <option value="استفسار عام">استفسار عام</option>
+        <option value="اقتراح">اقتراح</option>
+        <option value="أخرى">أخرى</option>
+      </select>
+      <textarea id="contact-message" placeholder="اكتب رسالتك هنا..." rows="3" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;padding:10px 14px;border-radius:8px;outline:none;resize:vertical"></textarea>
+      <button onclick="sendContact()" style="background:var(--accent2);color:#000;border:none;font-family:inherit;font-size:14px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">📩 إرسال</button>
+      <div id="contact-msg" style="text-align:center;font-size:12px;display:none"></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const urlParams = new URLSearchParams(location.search);
+const mode = urlParams.get('mode') || 'subscriber';
+
+// قراءة المفاتيح من الرابط (إذا موجودة)
+const urlKey = urlParams.get('key');
+const urlPw = urlParams.get('pw');
+
+// حفظها فوراً في localStorage عشان تستمر بين الصفحات
+if (urlKey) localStorage.setItem('subscription_key', urlKey);
+if (urlPw) localStorage.setItem('owner_password', urlPw);
+
+// 🔒 تنظيف الرابط فوراً — إخفاء المفتاح/الباسورد من شريط العنوان والتاريخ
+if (urlKey || urlPw) {
+  const cleanUrl = new URL(location.href);
+  cleanUrl.searchParams.delete('key');
+  cleanUrl.searchParams.delete('pw');
+  history.replaceState({}, '', cleanUrl.pathname + (cleanUrl.search || '') + (cleanUrl.hash || ''));
+}
+
+const userKey = urlKey || localStorage.getItem('subscription_key') || '';
+const ownerPw = urlPw || localStorage.getItem('owner_password') || '';
+
+// السوكت مع auth - مهم لتحقق السيرفر من هوية المستخدم
+const socket = io({ auth: { key: userKey, pw: ownerPw } });
+
+function logout() {
+  if (!confirm('متأكد تبي تسجل خروج؟')) return;
+  localStorage.removeItem('subscription_key');
+  localStorage.removeItem('owner_password');
+  // مسح الكوكي من السيرفر أيضاً
+  fetch('/api/logout', { method: 'POST' }).finally(() => {
+    window.location.href = '/login.html';
+  });
+}
+
+const GAMES = [
+  { icon:'🎰', name:'العجلة', page:'wheel.html', color:'#ffd700' },
+  { icon:'🔐', name:'كلمة السر', page:'password.html', color:'#0891b2' },
+  { icon:'⚔️', name:'حرب الكلمات', page:'word-war.html', color:'#ef4444' },
+  { icon:'❓', name:'سؤال وجواب', page:'quiz.html', color:'#a57afa' },
+  { icon:'🎯', name:'التصويت', page:'poll.html', color:'#f59e0b' },
+  { icon:'🔮', name:'خمن الكلمة', page:'guess.html', color:'#1dba72' },
+  { icon:'🏆', name:'الخروج', page:'knockout.html', color:'#ff6b9d' },
+];
+
+// Owner mode
+if (mode === 'owner') {
+  document.getElementById('mode-badge').style.background = 'var(--accent)';
+  document.getElementById('mode-badge').style.color = '#fff';
+  document.getElementById('mode-badge').textContent = '👑 مالك';
+  document.getElementById('subtitle').innerHTML = 'كل الفعاليات متاحة | <a href="/subscriptions.html?pw=' + encodeURIComponent(ownerPw) + '">📋 إدارة الاشتراكات</a>';
+}
+
+const roomsEl = document.getElementById('rooms-list');
+let roomsData = {};
+let myUsername = ''; // The single connected account
+
+async function apiFetch(url, opts={}) { return fetch(url, { ...opts, headers:{'Content-Type':'application/json',...(opts.headers||{})} }); }
+
+// Version badge
+fetch('/api/version').then(r=>r.json()).then(d=>{ if(d.version) document.getElementById('ver-badge').textContent = 'v' + d.version; }).catch(()=>{});
+
+// Load rooms filtered by key
+const roomsQuery = mode === 'owner' ? 'pw=' + encodeURIComponent(ownerPw) : 'key=' + encodeURIComponent(userKey);
+apiFetch('/api/rooms?' + roomsQuery).then(r=>r.json()).then(list => {
+  list.forEach(r => { roomsData[r.username] = r; myUsername = r.username; });
+  updateConnectUI();
+  render();
+  ensureStatsChannel();
+});
+
+// Also check if subscriber already has a saved username
+if (userKey && mode !== 'owner') {
+  fetch('/api/resolve-key?key=' + encodeURIComponent(userKey)).then(r=>r.json()).then(d => {
+    if (d.ok && d.username) {
+      myUsername = d.username;
+      const input = document.getElementById('username-input');
+      input.value = d.username;
+      input.disabled = true;
+      input.style.opacity = '.5';
+      // Hide session input and change button text to just "اتصل"
+      document.getElementById('connect-btn').textContent = '▶ اتصل';
+      document.getElementById('connect-btn').onclick = addRoom;
+      // Add locked notice
+      const notice = document.createElement('div');
+      notice.style.cssText = 'font-size:11px;color:var(--muted);text-align:center;margin-top:4px';
+      notice.textContent = '🔒 لتغيير اليوزرنيم تواصل مع الدعم من الأسفل';
+      document.getElementById('connect-section').appendChild(notice);
+    }
+  });
+}
+
+socket.on('room:status', ({ username, status, viewers, message }) => {
+  if (status === 'removed') { delete roomsData[username]; if (myUsername === username) { myUsername = ''; updateConnectUI(); } render(); return; }
+  if (!roomsData[username]) roomsData[username]={ username, stats:{viewers:0,likes:0,diamonds:0,shares:0}, msgCount:0 };
+  roomsData[username].status = status;
+  roomsData[username].errorMsg = (status === 'error' || status === 'offline') ? (message || '') : '';
+  if (viewers) roomsData[username].stats.viewers = viewers;
+  render();
+  ensureStatsChannel();
+});
+
+// ── إحصائيات لحظية ──────────────────────────────────────
+// اللوحة تنضم لقناة room:{username} عشان توصلها أحداث stats الحية
+let joinedStatsFor = '';
+function ensureStatsChannel() {
+  if (myUsername && joinedStatsFor !== myUsername) {
+    joinedStatsFor = myUsername;
+    socket.emit('join', { username: myUsername });
+  }
+}
+socket.on('connect', () => { joinedStatsFor = ''; ensureStatsChannel(); });
+
+const STAT_TILES = { viewers:['stat-viewers','👁️'], likes:['stat-likes','❤️'], diamonds:['stat-diamonds','💎'], shares:['stat-shares','🔁'] };
+socket.on('stats', (s) => {
+  if (!myUsername || !roomsData[myUsername]) return;
+  Object.assign(roomsData[myUsername].stats, s);
+  for (const k in STAT_TILES) {
+    if (s[k] === undefined) continue;
+    const el = document.getElementById(STAT_TILES[k][0]);
+    if (!el) continue;
+    const txt = STAT_TILES[k][1] + ' ' + Number(s[k]).toLocaleString();
+    if (el.textContent !== txt) {
+      el.textContent = txt;
+      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    }
+  }
+});
+
+async function addRoom() {
+  const input = document.getElementById('username-input');
+  const sessionInput = document.getElementById('session-input');
+  const username = input.value.trim().replace('@','');
+  if (!username) { showToast('اكتب اليوزرنيم أولاً'); return; }
+
+  const btn = document.getElementById('connect-btn');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري...'; }
+
+  const body = { username, sessionid: sessionInput.value.trim() };
+  if (userKey) body.key = userKey;
+
+  try {
+    // ✅ Timeout 15 ثانية بحيث الواجهة ما تتجمد لو السيرفر معلق
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const res = await fetch('/api/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      showToast('❌ خطأ من السيرفر (HTTP ' + res.status + ')');
+      console.error('[addRoom] Bad response:', res.status, txt);
+      return;
+    }
+
+    const data = await res.json();
+    console.log('[addRoom] Response:', data);
+
+    if (data.ok) {
+      myUsername = data.username;
+      roomsData[data.username] = { username: data.username, status:'connecting', stats:{viewers:0,likes:0,diamonds:0,shares:0}, msgCount:0 };
+      updateConnectUI();
+      render();
+      ensureStatsChannel();
+      showToast('جاري الاتصال بـ @' + data.username + '...');
+    } else {
+      showToast(data.error || '❌ فشل الاتصال');
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      showToast('⏱️ السيرفر لم يستجب — حاول مرة ثانية');
+      console.error('[addRoom] Timeout');
+    } else {
+      showToast('❌ خطأ: ' + err.message);
+      console.error('[addRoom] Error:', err);
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+async function removeRoom(username) {
+  await apiFetch('/api/disconnect', { method:'POST', body: JSON.stringify({ username }) });
+  delete roomsData[username];
+  if (myUsername === username) myUsername = '';
+  updateConnectUI();
+  render();
+  showToast('تم قطع @' + username);
+}
+
+function updateConnectUI() {
+  const input = document.getElementById('username-input');
+  const btn = document.getElementById('connect-btn');
+  if (mode !== 'owner' && myUsername) {
+    // Subscriber with assigned username - lock it
+    input.value = myUsername;
+    input.disabled = true;
+    input.style.opacity = '.5';
+    btn.textContent = '▶ اتصل';
+    btn.onclick = addRoom;
+  } else if (mode === 'owner') {
+    // Owner can connect any username
+    input.disabled = false;
+    input.style.opacity = '1';
+    btn.textContent = '+ اتصل';
+    btn.onclick = addRoom;
+  }
+}
+
+function statusLabel(s) { return {connected:'متصل',connecting:'جاري الاتصال',disconnected:'منقطع',error:'خطأ',retrying:'إعادة المحاولة...',ended:'انتهى البث',idle:'غير نشط'}[s]||s; }
+
+function render() {
+  const keys = Object.keys(roomsData);
+  if (!keys.length) { roomsEl.innerHTML='<div class="empty">لا يوجد اتصال — أضف يوزرنيم تيك توك حقك فوق</div>'; return; }
+  roomsEl.innerHTML = keys.map(key => {
+    const r = roomsData[key], status = r.status||'idle', stats = r.stats||{};
+    const hasError = (status === 'error' || status === 'offline') && r.errorMsg;
+    const gamesHtml = GAMES.map(g =>
+      '<a class="bx game" style="--c:' + g.color + '" href="' + location.origin + '/' + g.page + '?username=' + r.username + '" target="_blank">' +
+      '<span class="gi">' + g.icon + '</span><div><div class="gn">' + g.name + '</div><div class="gs">فتح لوحة التحكم</div></div><span class="go">←</span></a>'
+    ).join('');
+    // ⚠️ لافتة الخطأ + زر إعادة المحاولة
+    const errorBanner = hasError ?
+      '<div class="bx" style="grid-column:1/-1;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.35);border-radius:14px;padding:14px;color:#fecaca">' +
+        '<div style="font-size:14px;font-weight:800;margin-bottom:8px">' + escapeHtml(r.errorMsg) + '</div>' +
+        '<button onclick="retryConnect(\'' + r.username + '\')" style="background:#ef4444;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:800;cursor:pointer;font-family:inherit">🔄 إعادة الاتصال</button>' +
+      '</div>' : '';
+    return '<div class="bento">' +
+      '<div class="bx hero ' + status + '">' +
+        '<div class="hero-top"><span class="status-dot ' + status + '"></span><div><div class="room-name">@' + r.username + '</div><div class="room-meta">' + statusLabel(status) + '</div></div></div>' +
+        '<button class="top-btn remove" onclick="removeRoom(\'' + r.username + '\')">✕ قطع الاتصال</button>' +
+      '</div>' +
+      errorBanner +
+      '<div class="bx stat" style="--c:#06b6d4"><div class="v" id="stat-viewers">👁️ ' + (stats.viewers||0).toLocaleString() + '</div><div class="l">المشاهدون</div></div>' +
+      '<div class="bx stat" style="--c:#ec4899"><div class="v" id="stat-likes">❤️ ' + (stats.likes||0).toLocaleString() + '</div><div class="l">الإعجابات</div></div>' +
+      '<div class="bx stat" style="--c:#f59e0b"><div class="v" id="stat-diamonds">💎 ' + (stats.diamonds||0).toLocaleString() + '</div><div class="l">الدياموند</div></div>' +
+      '<div class="bx stat" style="--c:#10b981"><div class="v" id="stat-shares">🔁 ' + (stats.shares||0).toLocaleString() + '</div><div class="l">المشاركات</div></div>' +
+      '<a class="bx game" style="--c:#8b5cf6;grid-column:1/-1" href="obs-links.html?username=' + r.username + (userKey ? '&key=' + encodeURIComponent(userKey) : '') + '" target="_blank">' +
+      '<span class="gi">📺</span><div><div class="gn">OBS Link Generator</div><div class="gs">ولّد روابط كل الأوفرلايات الجاهزة للبث</div></div><span class="go">←</span></a>' +
+      '<div class="games-label">🎮 الفعاليات — اضغط لفتح لوحة التحكم</div>' +
+      gamesHtml +
+    '</div>';
+  }).join('');
+}
+
+function escapeHtml(s) { return String(s||'').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// زر إعادة المحاولة - مع timeout وحماية كاملة
+async function retryConnect(username) {
+  const body = { username };
+  if (userKey) body.key = userKey;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const res = await fetch('/api/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const data = await res.json();
+    if (data.ok) {
+      showToast('جاري إعادة الاتصال بـ @' + username + '...');
+      if (roomsData[username]) { roomsData[username].status = 'connecting'; roomsData[username].errorMsg = ''; render(); }
+    } else if (data.error) {
+      showToast(data.error);
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') showToast('⏱️ السيرفر لم يستجب');
+    else showToast('❌ خطأ: ' + err.message);
+    console.error('[retryConnect]', err);
+  }
+}
+
+// 🛡️ معالج أخطاء عام - يمنع تجمد الواجهة لو حصل أي JS error
+window.addEventListener('error', (e) => {
+  console.error('[Global Error]', e.error || e.message);
+  try { showToast('⚠️ حدث خطأ — افتح Console (F12) للتفاصيل'); } catch(_) {}
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[Unhandled Promise]', e.reason);
+  try { showToast('⚠️ خطأ غير متوقع — افتح Console (F12)'); } catch(_) {}
+});
+
+document.getElementById('username-input').addEventListener('keydown', e => { if (e.key === 'Enter') addRoom(); });
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+
+function toggleGuide() {
+  const toggle = document.getElementById('guide-toggle');
+  const body = document.getElementById('guide-body');
+  toggle.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+// ── My Links ──
+async function sendContact() {
+  const name = document.getElementById('contact-name').value.trim();
+  const email = document.getElementById('contact-email').value.trim();
+  const subject = document.getElementById('contact-subject').value;
+  const message = document.getElementById('contact-message').value.trim();
+  const msgEl = document.getElementById('contact-msg');
+  if (!message) { msgEl.style.display='block'; msgEl.style.color='var(--red)'; msgEl.textContent='اكتب رسالتك أول'; return; }
+  const res = await fetch('/api/contact', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, email, subject, message, key: userKey }) });
+  const data = await res.json();
+  if (data.ok) {
+    msgEl.style.display='block'; msgEl.style.color='var(--green)'; msgEl.textContent='✅ تم إرسال رسالتك بنجاح! بنرد عليك بأسرع وقت';
+    document.getElementById('contact-message').value='';
+    document.getElementById('contact-name').value='';
+  } else {
+    msgEl.style.display='block'; msgEl.style.color='var(--red)'; msgEl.textContent=data.error || 'حصل خطأ';
+  }
+}
+</script>
+<div style="text-align:center;padding:20px 16px;font-size:11px;color:#444;margin-top:24px;border-top:1px solid rgba(255,255,255,.06);width:100%">© 2026 BthLab. جميع الحقوق محفوظة.</div>
 </body>
 </html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="rgba(0,0,0,0)">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>Quiz Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+/* 🔬 مؤشر تشخيص - يظهر حالة الاتصال في زاوية الشاشة */
+#bthlab-diag {
+  position: fixed !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 999999 !important;
+  background: rgba(0,0,0,.85) !important;
+  color: #fff !important;
+  padding: 6px 12px !important;
+  border-radius: 20px !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  border: 1.5px solid #fbbf24 !important;
+  pointer-events: none !important;
+  transition: opacity .4s !important;
+}
+#bthlab-diag.ok { border-color: #10b981 !important; }
+#bthlab-diag.err { border-color: #ef4444 !important; }
+/* 🔥 حل قطعي لشاشة سوداء في TikTok LIVE Studio - شفافية مضمونة */
+html, body { background: transparent !important; background-color: rgba(0,0,0,0) !important; }
+:root { color-scheme: light dark; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { background:transparent; width:100vw; height:100vh; font-family:'Tajawal',sans-serif; overflow:hidden; display:flex; align-items:flex-end; justify-content:center; padding-bottom:30px; }
+body.mobile{transform:scale(0.55);transform-origin:center center;}
+#container { display:none; max-width:500px; width:90vw; }
+.quiz-card { background: rgba(0,0,0,.92); border:1px solid rgba(6,182,212,.4); border-radius:22px; padding:20px 24px; box-shadow:0 22px 50px -18px rgba(0,0,0,.75), 0 0 38px -12px rgba(6,182,212,.4); }
+.question { font-size:18px; font-weight:900; color:#fff; text-align:center; margin-bottom:14px; line-height:1.6; }
+.choices { display:flex; flex-direction:column; gap:8px; }
+.choice { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:13px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); transition:all .3s; }
+.choice-num { width:28px; height:28px; border-radius:9px; background:rgba(6,182,212,.16); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900; color:#22d3ee; flex-shrink:0; }
+.choice-text { font-size:15px; color:#fff; flex:1; font-weight:700; }
+.choice-bar { height:4px; border-radius:2px; background:rgba(255,255,255,.1); flex:1; max-width:80px; overflow:hidden; }
+.choice-bar-fill { height:100%; border-radius:2px; transition:width .5s; }
+.choice.correct { border-color:rgba(16,185,129,.6); background:rgba(16,185,129,.14); box-shadow:0 0 22px -8px rgba(16,185,129,.55); }
+.choice.correct .choice-num { background:#10b981; color:#021008; }
+.choice.wrong { opacity:.45; }
+.timer-bar { height:4px; background:rgba(255,255,255,.1); border-radius:99px; margin-top:12px; overflow:hidden; }
+.timer-fill { height:100%; background:linear-gradient(90deg,#06b6d4,#8b5cf6); border-radius:99px; transition:width .2s linear; box-shadow:0 0 10px rgba(6,182,212,.6); }
+.count-bar { text-align:center; font-size:12px; color:rgba(255,255,255,.5); margin-top:8px; }
+#winner-bar { display:none; text-align:center; padding:10px; margin-top:8px; background:rgba(245,158,11,.14); border:1px solid rgba(245,158,11,.35); border-radius:12px; color:#fde68a; font-weight:900; font-size:16px; box-shadow:0 0 24px -10px rgba(245,158,11,.5); }
+50%{opacity:.35} }
+</style>
+<script>
+// 🔥 فرض شفافية HTML/body في TikTok LIVE Studio WebView
+(function(){
+  var setTransparent = function(){
+    document.documentElement.style.background = 'transparent';
+    document.documentElement.style.backgroundColor = 'rgba(0,0,0,0)';
+    if(document.body){
+      document.body.style.background = 'transparent';
+      document.body.style.backgroundColor = 'rgba(0,0,0,0)';
+    }
+  };
+  setTransparent();
+  document.addEventListener('DOMContentLoaded', setTransparent);
+  window.addEventListener('load', setTransparent);
+})();
+</script>
+</head>
+<body>
+<div id="bthlab-diag">🟡 يتصل...</div>
+<div id="container">
+  <div class="quiz-card">
+<div class="question" id="question"></div>
+    <div class="choices" id="choices"></div>
+    <div class="timer-bar"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
+    <div class="count-bar" id="count-bar">0 إجابة</div>
+    <div id="winner-bar"></div>
+  </div>
+</div>
+<script>
+if(new URLSearchParams(location.search).get("mobile")==="1")document.body.classList.add("mobile");
+const params = new URLSearchParams(location.search);
+let username = params.get('username') || '';
+const authKey = params.get('key') || '';
+const __auth = (function(){ var p = new URLSearchParams(location.search); return { key: p.get('key')||'', pw: p.get('pw')||'' }; })();
+const socket = io({ auth: __auth, transports:['websocket','polling'], upgrade:true, reconnection:true, reconnectionDelay:500, reconnectionDelayMax:3000, reconnectionAttempts:Infinity, timeout:10000, withCredentials:false });
+
+// auto-rejoin: يضمن انضمام الأوفرلاي لقناة البث فوراً بعد كل اتصال/إعادة اتصال
+socket.on('connect', function() {
+  try { if (typeof username !== 'undefined' && username) socket.emit('join', { username: username, key: __auth.key, pw: __auth.pw }); } catch(e){}
+});
+socket.io.on('reconnect', function() {
+  try { if (typeof username !== 'undefined' && username) socket.emit('join', { username: username, key: __auth.key, pw: __auth.pw }); } catch(e){}
+});
+
+let timerInterval = null;
+let endTime = 0;
+let totalTime = 30;
+let choicesData = [];
+
+if (!username && authKey) {
+  fetch('/api/resolve-key?key='+encodeURIComponent(authKey)).then(r=>r.json()).then(d=>{
+    if(d.ok&&d.username){username=d.username;socket.emit('join', { username: username, key: __auth.key, pw: __auth.pw });}
+    else if(d.ok&&d.connectedRooms?.length){username=d.connectedRooms[0];socket.emit('join', { username: username, key: __auth.key, pw: __auth.pw });}
+  });
+} else if(username) socket.emit('join', { username: username, key: __auth.key, pw: __auth.pw });
+
+socket.on('quiz:start', (data) => {
+  document.getElementById('container').style.display = 'block';
+  document.getElementById('question').textContent = data.question;
+  choicesData = data.choices;
+  document.getElementById('choices').innerHTML = data.choices.map((c, i) =>
+    `<div class="choice" id="choice-${i}"><span class="choice-num">${i+1}</span><span class="choice-text">${esc(c)}</span></div>`
+  ).join('');
+  document.getElementById('count-bar').textContent = '0 إجابة';
+  document.getElementById('winner-bar').style.display = 'none';
+  endTime = data.endTime;
+  totalTime = data.timer;
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimer, 100);
+});
+
+socket.on('quiz:answer', (data) => {
+  document.getElementById('count-bar').textContent = data.totalAnswers + ' إجابة';
+});
+
+socket.on('quiz:end', (data) => {
+  if (timerInterval) clearInterval(timerInterval);
+  document.getElementById('timer-fill').style.width = '0%';
+  const total = data.totalAnswers || 1;
+  const colors = ['#ff0050','#0891b2','#ffd700','#1dba72'];
+  choicesData.forEach((c, i) => {
+    const el = document.getElementById('choice-' + i);
+    if (!el) return;
+    if (i === data.correctIndex) el.classList.add('correct');
+    else el.classList.add('wrong');
+    const count = data.results[i] || 0;
+    const pct = Math.round((count / total) * 100);
+    el.innerHTML += `<div class="choice-bar"><div class="choice-bar-fill" style="width:${pct}%;background:${colors[i%4]}"></div></div><span style="font-size:11px;color:#aaa;min-width:30px">${pct}%</span>`;
+  });
+  if (data.winner) {
+    document.getElementById('winner-bar').style.display = 'block';
+    document.getElementById('winner-bar').textContent = '🏆 ' + data.winner.name;
+  }
+  setTimeout(() => { document.getElementById('container').style.display = 'none'; }, 8000);
+});
+
+function updateTimer() {
+  const remain = Math.max(0, endTime - Date.now());
+  const pct = (remain / (totalTime * 1000)) * 100;
+  document.getElementById('timer-fill').style.width = pct + '%';
+  if (remain <= 0 && timerInterval) clearInterval(timerInterval);
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+<script>
+// 🔬 مؤشر تشخيص للأوفرلاي - يعرض حالة الاتصال
+(function(){
+  var el = document.getElementById('bthlab-diag');
+  if (!el) return;
+  var joinedRoom = false;
+  var checkInterval = setInterval(function(){
+    if (typeof socket === 'undefined') return;
+    clearInterval(checkInterval);
+    
+    var qs = new URLSearchParams(location.search);
+    var u = qs.get('username') || qs.get('user') || '';
+    var hasKey = !!(qs.get('key') || qs.get('pw'));
+    
+    if (!u) {
+      el.className = 'err';
+      el.textContent = '❌ URL ناقص username';
+      return;
+    }
+    if (!hasKey) {
+      el.className = 'err';
+      el.textContent = '⚠️ URL ناقص key';
+      return;
+    }
+    
+    function update() {
+      if (socket.connected) {
+        el.className = 'ok';
+        el.textContent = joinedRoom ? ('🟢 متصل · @' + u) : ('🟡 انضمام...');
+        if (joinedRoom) {
+          setTimeout(function(){ el.style.opacity = '0'; setTimeout(function(){ el.style.display = 'none'; }, 400); }, 8000);
+        }
+      } else {
+        el.className = '';
+        el.textContent = '🟡 يتصل بالسيرفر...';
+        el.style.opacity = '1';
+        el.style.display = 'block';
+      }
+    }
+    
+    socket.on('connect', update);
+    socket.on('disconnect', function(){
+      el.className = 'err';
+      el.textContent = '🔴 انقطع الاتصال';
+      el.style.opacity = '1';
+      el.style.display = 'block';
+    });
+    socket.on('connect_error', function(err){
+      el.className = 'err';
+      el.textContent = '❌ فشل: ' + (err.message||'').slice(0,25);
+      el.style.opacity = '1';
+      el.style.display = 'block';
+    });
+    // نعرف إن انضممنا للقناة لما يوصل أي event من السيرفر
+    var origOn = socket.on.bind(socket);
+    ['stats','room:status','wheel:update','knockout:register','knockout:question','password:update','quiz:start','poll:start','word-war:update','guess:update','history','viewers'].forEach(function(evt){
+      socket.on(evt, function(){ if (!joinedRoom) { joinedRoom = true; update(); } });
+    });
+    update();
+  }, 50);
+})();
+</script>
+</body>
+</html>

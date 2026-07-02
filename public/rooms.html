@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الغرف التفاعلية — BthLab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #0a0a12;
+    --surface: #12121e;
+    --border: #1e1e30;
+    --accent: #7c6bff;
+    --accent2: #ff6b9d;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --success: #4ade80;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Tajawal', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(124,107,255,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(255,107,157,0.06) 0%, transparent 50%);
+    animation: bgMove 10s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+  @keyframes bgMove {
+    0% { transform: translate(0,0); }
+    100% { transform: translate(2%, 2%); }
+  }
+
+  .container {
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .logo {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .logo h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -1px;
+  }
+  .logo p { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 4px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 12px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 28px;
+  }
+
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    text-align: right;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field input::placeholder { color: var(--muted); }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    margin-top: 4px;
+  }
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .result-box {
+    display: none;
+    margin-top: 20px;
+    background: rgba(124,107,255,0.08);
+    border: 1.5px solid rgba(124,107,255,0.3);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+  }
+  .result-box.show { display: block; }
+  .result-box .room-code {
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 10px 0;
+  }
+  .result-box p { color: var(--muted); font-size: 0.85rem; margin-bottom: 14px; }
+  .copy-link {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    word-break: break-all;
+    margin-bottom: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .copy-link:hover { border-color: var(--accent); }
+
+  .btn-go {
+    background: var(--success);
+    color: #0a0a12;
+  }
+
+  .err { color: #f87171; font-size: 0.85rem; margin-top: 10px; text-align: center; }
+
+  .divider {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin: 6px 0 12px;
+  }
+
+  .code-input {
+    text-align: center !important;
+    letter-spacing: 6px;
+    font-size: 1.3rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase;
+  }
+
+  .beta-badge { display:inline-block; font-size:11px; font-weight:900; color:#fbbf24; background:rgba(251,191,36,.12); border:1px solid rgba(251,191,36,.4); padding:4px 11px; border-radius:99px; vertical-align:middle; margin-inline-start:8px; animation:betaPulse 2.5s ease-in-out infinite; }
+  @keyframes betaPulse { 0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.3)} 50%{box-shadow:0 0 0 6px rgba(251,191,36,0)} }
+  .beta-notice { margin-top:10px; font-size:12px; color:#fbbf24; background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.22); border-radius:11px; padding:9px 14px; line-height:1.7; }
+
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="logo">
+    <h1>🎮 الغرف التفاعلية <span class="beta-badge">🧪 تجريبية</span></h1>
+    <p>أنشئ غرفة وشارك الرابط مع جمهورك</p>
+    <div class="beta-notice">⚠️ هذه الميزة في مرحلة تجريبية — قد تواجه بعض الأخطاء، نرحب بملاحظاتك على واتساب الدعم</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('create')">إنشاء غرفة</button>
+    <button class="tab-btn" onclick="switchTab('join')">دخول غرفة</button>
+  </div>
+
+  <!-- CREATE -->
+  <div class="panel active" id="panel-create">
+    <div class="card">
+      <div class="field">
+        <label>اسمك (كمضيف)</label>
+        <input id="host-name" type="text" placeholder="مثال: أبو خالد" maxlength="30">
+      </div>
+      <button class="btn" onclick="createRoom()" id="btn-create">🚀 إنشاء غرفة جديدة</button>
+      <div id="create-err" class="err"></div>
+    </div>
+
+    <div class="result-box" id="create-result">
+      <p>كود الغرفة</p>
+      <div class="room-code" id="room-code-display"></div>
+      <p>شارك هذا الرابط مع جمهورك</p>
+      <div class="copy-link" id="room-link-display" onclick="copyLink()">—</div>
+      <button class="btn btn-go" onclick="goToRoom()">▶ دخول الغرفة كمضيف</button>
+    </div>
+  </div>
+
+  <!-- JOIN -->
+  <div class="panel" id="panel-join">
+    <div class="card">
+      <div class="field">
+        <label>كود الغرفة</label>
+        <input id="join-code" type="text" class="code-input" placeholder="ABC123" maxlength="6">
+      </div>
+      <div class="field">
+        <label>اسمك</label>
+        <input id="join-name" type="text" placeholder="مثال: محمد" maxlength="30">
+      </div>
+      <button class="btn" onclick="joinRoom()" id="btn-join">🎯 دخول الغرفة</button>
+      <div id="join-err" class="err"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let createdCode = '';
+  let createdHost = '';
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0 && tab==='create') || (i===1 && tab==='join')));
+    document.getElementById('panel-create').classList.toggle('active', tab==='create');
+    document.getElementById('panel-join').classList.toggle('active', tab==='join');
+  }
+
+  // Pre-fill code from URL
+  const urlParams = new URLSearchParams(location.search);
+  const urlCode = urlParams.get('code');
+  if (urlCode) {
+    switchTab('join');
+    document.getElementById('join-code').value = urlCode.toUpperCase();
+  }
+
+  async function createRoom() {
+    const hostName = document.getElementById('host-name').value.trim();
+    const err = document.getElementById('create-err');
+    err.textContent = '';
+    if (!hostName) { err.textContent = 'ادخل اسمك أولاً'; return; }
+    const btn = document.getElementById('btn-create');
+    btn.disabled = true; btn.textContent = '...جاري الإنشاء';
+    try {
+      const res = await fetch('/api/live-rooms/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostName }),
+      });
+      const data = await res.json();
+      if (!data.ok) { err.textContent = data.error || 'حدث خطأ'; return; }
+      createdCode = data.code;
+      createdHost = hostName;
+      document.getElementById('room-code-display').textContent = data.code;
+      const link = `${location.origin}/room.html?code=${data.code}&host=1&name=${encodeURIComponent(hostName)}`;
+      document.getElementById('room-link-display').textContent = `${location.origin}/room.html?code=${data.code}`;
+      document.getElementById('create-result').classList.add('show');
+    } catch(e) { err.textContent = 'خطأ في الاتصال'; }
+    finally { btn.disabled = false; btn.textContent = '🚀 إنشاء غرفة جديدة'; }
+  }
+
+  function copyLink() {
+    const link = `${location.origin}/room.html?code=${createdCode}`;
+    navigator.clipboard.writeText(link).then(() => {
+      const el = document.getElementById('room-link-display');
+      el.textContent = '✅ تم النسخ!';
+      setTimeout(() => el.textContent = link, 2000);
+    });
+  }
+
+  function goToRoom() {
+    location.href = `/room.html?code=${createdCode}&host=1&name=${encodeURIComponent(createdHost)}`;
+  }
+
+  async function joinRoom() {
+    const code = document.getElementById('join-code').value.trim().toUpperCase();
+    const name = document.getElementById('join-name').value.trim();
+    const err = document.getElementById('join-err');
+    err.textContent = '';
+    if (!code || code.length !== 6) { err.textContent = 'ادخل كود الغرفة (6 أحرف)'; return; }
+    if (!name) { err.textContent = 'ادخل اسمك'; return; }
+    const btn = document.getElementById('btn-join');
+    btn.disabled = true; btn.textContent = '...جاري التحقق';
+    try {
+      const res = await fetch(`/api/live-rooms/${code}`);
+      const data = await res.json();
+      if (!data.ok) { err.textContent = 'الغرفة غير موجودة أو انتهت'; return; }
+      location.href = `/room.html?code=${code}&name=${encodeURIComponent(name)}`;
+    } catch(e) { err.textContent = 'خطأ في الاتصال'; }
+    finally { btn.disabled = false; btn.textContent = '🎯 دخول الغرفة'; }
+  }
+
+  // Enter key support
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      if (document.getElementById('panel-create').classList.contains('active')) createRoom();
+      else joinRoom();
+    }
+  });
+</script>
+</body>
+</html>

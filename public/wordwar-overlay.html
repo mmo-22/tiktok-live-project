@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>Word War Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent;width:100vw;height:100vh;font-family:'Tajawal',sans-serif;overflow:hidden}
+#container{display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);min-width:420px}
+.scoreboard{display:flex;gap:0;border-radius:20px;overflow:hidden;border:2px solid rgba(255,255,255,.15)}
+.team{flex:1;padding:14px 24px;text-align:center}
+.team-red{background:rgba(239,68,68,.85)}
+.team-blue{background:rgba(59,130,246,.85)}
+.team-label{font-size:13px;font-weight:700;color:rgba(255,255,255,.8)}
+.team-score{font-size:36px;font-weight:900;color:#fff}
+.vs{background:rgba(0,0,0,.9);color:#ffd700;font-weight:900;font-size:16px;display:flex;align-items:center;padding:0 12px}
+.category-bar{text-align:center;margin-top:10px;background:rgba(0,0,0,.85);border-radius:12px;padding:8px 20px;color:#ffd700;font-size:16px;font-weight:700}
+.timer-bar{text-align:center;margin-top:6px;background:rgba(0,0,0,.7);border-radius:8px;padding:4px 12px;font-size:14px;font-weight:900;color:#25f4ee}
+.keywords-bar{display:flex;gap:8px;margin-top:8px;justify-content:center}
+.kw{padding:4px 14px;border-radius:8px;font-size:12px;font-weight:700;color:#fff}
+.kw-red{background:rgba(239,68,68,.7)}
+.kw-blue{background:rgba(59,130,246,.7)}
+
+/* Word feed */
+.word-feed{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;max-width:500px}
+.word-item{padding:6px 16px;border-radius:10px;font-size:14px;font-weight:700;color:#fff;animation:wordSlide .4s ease;white-space:nowrap}
+.word-item.red{background:rgba(239,68,68,.8)}
+.word-item.blue{background:rgba(59,130,246,.8)}
+@keyframes wordSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* Join popup */
+.join-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:12px 28px;border-radius:14px;font-size:16px;font-weight:900;color:#fff;opacity:0;transition:opacity .3s;z-index:100;pointer-events:none}
+.join-popup.show{opacity:1;animation:popIn .3s ease}
+@keyframes popIn{from{transform:translate(-50%,-50%) scale(.8)}to{transform:translate(-50%,-50%) scale(1)}}
+
+/* End result */
+#end-popup{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .5s}
+#end-popup.show{opacity:1}
+.end-card{background:rgba(0,0,0,.92);border:3px solid #ffd700;border-radius:28px;padding:36px 48px;text-align:center}
+.end-title{font-size:28px;font-weight:900;color:#ffd700;margin-bottom:8px}
+.end-scores{font-size:18px;color:#fff;margin-top:8px}
+
+.confetti-piece{position:fixed;width:10px;height:10px;border-radius:2px;animation:confettiFall linear forwards;pointer-events:none;z-index:300}
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(105vh) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+<div id="container">
+  <div class="scoreboard">
+    <div class="team team-red"><div class="team-label" id="red-label">🔴 أحمر (0)</div><div class="team-score" id="red">0</div></div>
+    <div class="vs">VS</div>
+    <div class="team team-blue"><div class="team-label" id="blue-label">🔵 أزرق (0)</div><div class="team-score" id="blue">0</div></div>
+  </div>
+  <div class="category-bar" id="category-bar" style="display:none"></div>
+  <div class="timer-bar" id="timer-bar" style="display:none"></div>
+  <div class="keywords-bar" id="keywords-bar" style="display:none">
+    <span class="kw kw-red" id="kw-red">أحمر</span>
+    <span style="color:rgba(255,255,255,.4);font-size:11px">اكتب في الشات للانضمام</span>
+    <span class="kw kw-blue" id="kw-blue">أزرق</span>
+  </div>
+</div>
+<div class="word-feed" id="word-feed"></div>
+<div id="join-popup" class="join-popup"></div>
+<div id="end-popup"><div class="end-card"><div class="end-title" id="end-title"></div><div class="end-scores" id="end-scores"></div></div></div>
+
+<script>
+const params=new URLSearchParams(location.search);
+let username=params.get('username')||'';
+const authKey=params.get('key')||'';
+const socket=io();
+let timerInt=null,endTime=0,totalTime=60;
+
+if(!username&&authKey){fetch('/api/resolve-key?key='+encodeURIComponent(authKey)).then(r=>r.json()).then(d=>{if(d.ok&&d.username){username=d.username;socket.emit('join',{username});load();}else if(d.ok&&d.connectedRooms?.length){username=d.connectedRooms[0];socket.emit('join',{username});load();}});}
+else if(username){socket.emit('join',{username});load();}
+
+function load(){fetch(`/api/wordwar/${username}`).then(r=>r.json()).then(d=>{if(d.active){show();updateScores(d);document.getElementById('category-bar').textContent=d.category;document.getElementById('category-bar').style.display='block';endTime=d.endTime;totalTime=d.duration;startTimer();}});}
+
+function show(){document.getElementById('container').style.display='block';}
+
+socket.on('wordwar:start',d=>{
+  show();
+  document.getElementById('red').textContent='0';document.getElementById('blue').textContent='0';
+  document.getElementById('category-bar').textContent=d.category;document.getElementById('category-bar').style.display='block';
+  document.getElementById('timer-bar').style.display='block';
+  document.getElementById('kw-red').textContent=d.redKeyword||'أحمر';
+  document.getElementById('kw-blue').textContent=d.blueKeyword||'أزرق';
+  document.getElementById('keywords-bar').style.display='flex';
+  document.getElementById('red-label').textContent='🔴 أحمر ('+d.redCount+')';
+  document.getElementById('blue-label').textContent='🔵 أزرق ('+d.blueCount+')';
+  endTime=Date.now()+d.duration*1000;totalTime=d.duration;startTimer();
+  document.getElementById('word-feed').innerHTML='';
+});
+
+socket.on('wordwar:join',d=>{
+  document.getElementById('red-label').textContent='🔴 أحمر ('+d.redCount+')';
+  document.getElementById('blue-label').textContent='🔵 أزرق ('+d.blueCount+')';
+  showJoin(d.team,d.player);
+});
+
+socket.on('wordwar:word',d=>{
+  document.getElementById('red').textContent=d.redScore;document.getElementById('blue').textContent=d.blueScore;
+  addWordFeed(d.team,d.player,d.word);
+});
+
+socket.on('wordwar:lock',d=>{
+  if(d.locked){document.getElementById('keywords-bar').style.display='none';}
+  else{document.getElementById('keywords-bar').style.display='flex';}
+});
+
+socket.on('wordwar:end',d=>{
+  if(timerInt)clearInterval(timerInt);
+  document.getElementById('timer-bar').style.display='none';
+  const w=d.winner==='red'?'🔴 الأحمر يفوز!':d.winner==='blue'?'🔵 الأزرق يفوز!':'🤝 تعادل!';
+  document.getElementById('end-title').textContent='⚔️ '+w;
+  document.getElementById('end-scores').textContent='🔴 '+d.redScore+' — '+d.blueScore+' 🔵';
+  document.getElementById('end-popup').classList.add('show');
+  launchConfetti();
+  setTimeout(()=>{document.getElementById('end-popup').classList.remove('show');},6000);
+});
+
+function updateScores(d){document.getElementById('red').textContent=d.redScore;document.getElementById('blue').textContent=d.blueScore;document.getElementById('red-label').textContent='🔴 أحمر ('+d.redCount+')';document.getElementById('blue-label').textContent='🔵 أزرق ('+d.blueCount+')';}
+
+function startTimer(){if(timerInt)clearInterval(timerInt);updateTimer();timerInt=setInterval(updateTimer,200);}
+function updateTimer(){const remain=Math.max(0,endTime-Date.now());const sec=Math.ceil(remain/1000);document.getElementById('timer-bar').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');if(remain<=0&&timerInt)clearInterval(timerInt);}
+
+function showJoin(team,name){
+  const p=document.getElementById('join-popup');
+  p.style.background=team==='red'?'rgba(239,68,68,.9)':'rgba(59,130,246,.9)';
+  p.textContent=(team==='red'?'🔴':'🔵')+' '+name+' انضم!';
+  p.className='join-popup show';
+  setTimeout(()=>p.classList.remove('show'),2000);
+}
+
+function addWordFeed(team,player,word){
+  const feed=document.getElementById('word-feed');
+  const el=document.createElement('div');
+  el.className='word-item '+team;
+  el.textContent=player+': '+word;
+  feed.appendChild(el);
+  if(feed.children.length>8)feed.removeChild(feed.firstChild);
+  setTimeout(()=>{if(el.parentNode)el.remove();},5000);
+}
+
+function launchConfetti(){const colors=['#ff0050','#25f4ee','#ffd700','#1dba72','#a57afa','#f59e0b'];for(let i=0;i<60;i++){const el=document.createElement('div');el.className='confetti-piece';el.style.cssText=`left:${Math.random()*100}vw;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${2+Math.random()*2}s;animation-delay:${Math.random()*.5}s;`;document.body.appendChild(el);setTimeout(()=>el.remove(),4000);}}
+</script>
+</body>
+</html>

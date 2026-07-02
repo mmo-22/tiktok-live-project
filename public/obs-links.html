@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBS Link Generator — BthLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root { --bg:#06060b; --surface:#0c0c16; --surface2:#10101c; --border:rgba(255,255,255,.07); --accent:#ff0050; --accent2:#06b6d4; --text:#e9eef5; --muted:#8b93a7; --green:#10b981; --gold:#f59e0b; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:radial-gradient(70% 40% at 50% 0%,rgba(8,145,178,.10),transparent 60%),var(--bg);color:var(--text);font-family:'Tajawal',sans-serif;min-height:100vh;padding:24px 16px}
+.container{max-width:780px;margin:0 auto}
+h1{font-size:20px;font-weight:900;margin-bottom:4px}
+h1 span{background:linear-gradient(90deg,#22d3ee,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:20px}
+.back{color:var(--accent2);text-decoration:none;font-size:12.5px;font-weight:800}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:14px}
+.lbl{font-size:12px;color:var(--muted);font-weight:800;margin-bottom:6px;display:block}
+input[type=text]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:14px;padding:11px 14px;border-radius:12px;outline:none;direction:ltr;text-align:left;transition:border-color .2s}
+input[type=text]:focus{border-color:var(--accent2)}
+.opts{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}
+.opt{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;cursor:pointer;user-select:none}
+.opt input{accent-color:var(--accent2);width:16px;height:16px;cursor:pointer}
+.ov-grid{display:flex;flex-direction:column;gap:12px}
+.ov{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:16px;transition:.2s}
+.ov:hover{border-color:color-mix(in srgb,var(--c,#06b6d4) 45%,transparent)}
+.ov .head{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+.ov .gi{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0;background:color-mix(in srgb,var(--c,#06b6d4) 13%,transparent)}
+.ov .gn{font-size:14.5px;font-weight:800}
+.ov .gs{font-size:11px;color:var(--muted);font-weight:700}
+.ov .size{margin-right:auto;font-size:10.5px;font-weight:800;color:var(--accent2);background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.25);padding:4px 11px;border-radius:99px;white-space:nowrap}
+.url-row{display:flex;gap:8px}
+.url-box{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:10px 12px;font-family:monospace;font-size:10.5px;color:var(--muted);direction:ltr;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-copy{background:var(--accent2);color:#021018;border:none;font-family:inherit;font-size:12px;font-weight:900;padding:0 18px;border-radius:11px;cursor:pointer;transition:.15s;flex-shrink:0}
+.btn-copy:hover{opacity:.85}
+.btn-copy.copied{background:var(--green);color:#fff}
+.btn-prev{background:var(--surface2);color:var(--muted);border:1px solid var(--border);font-family:inherit;font-size:12px;font-weight:800;padding:0 14px;border-radius:11px;cursor:pointer;text-decoration:none;display:flex;align-items:center;flex-shrink:0;transition:.15s}
+.btn-prev:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+.chat-opts{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:11px}
+.chat-opts .copt{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
+.chat-opts select,.chat-opts input[type=number]{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:6px 9px;color:var(--text);font-family:inherit;font-size:12px;outline:none}
+.guide{background:rgba(6,182,212,.05);border:1px solid rgba(6,182,212,.2);border-radius:18px;padding:18px;margin-top:18px}
+.guide b{font-size:13.5px;color:var(--accent2);display:block;margin-bottom:10px}
+.guide ol{padding-right:18px;display:flex;flex-direction:column;gap:7px}
+.guide li{font-size:12.5px;color:var(--muted);line-height:1.7}
+.guide li strong{color:var(--text)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:12px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
+.toast.show{opacity:1}
+@media(max-width:500px){body{padding:16px 10px}.url-row{flex-wrap:wrap}.btn-copy,.btn-prev{padding:9px 16px}.ov .size{display:none}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <h1>📺 <span>OBS Link Generator</span></h1>
+    <a class="back" href="#" id="back-link">← رجوع للوحة</a>
+  </div>
+  <div class="subtitle">ولّد روابط الأوفرلاي الجاهزة وأضفها كـ Browser Source في OBS أو StreamLabs</div>
+
+  <div class="card">
+    <label class="lbl">يوزرنيم تيك توك</label>
+    <input type="text" id="username" placeholder="username بدون @" oninput="genAll()">
+    <div class="opts">
+      <label class="opt"><input type="checkbox" id="opt-mobile" onchange="genAll()"> 📱 وضع الجوال (للبث من الجوال)</label>
+    </div>
+  </div>
+
+  <div class="ov-grid" id="ov-grid"></div>
+
+  <div class="guide">
+    <b>⚡ طريقة الإضافة في OBS</b>
+    <ol>
+      <li>في OBS اضغط <strong>+</strong> في Sources واختر <strong>Browser</strong></li>
+      <li>الصق الرابط في خانة <strong>URL</strong></li>
+      <li>اضبط <strong>Width / Height</strong> حسب المقاس المقترح بجانب كل أوفرلاي</li>
+      <li>فعّل <strong>Refresh browser when scene becomes active</strong></li>
+      <li>الخلفية شفافة تلقائياً — حرّك الأوفرلاي وغيّر حجمه براحتك 🎉</li>
+    </ol>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const params = new URLSearchParams(location.search);
+
+// 🔒 حفظ المفتاح وتنظيف الرابط
+const _urlKey = params.get('key');
+const _urlPw = params.get('pw');
+if (_urlKey) localStorage.setItem('subscription_key', _urlKey);
+if (_urlPw) localStorage.setItem('owner_password', _urlPw);
+if (_urlKey || _urlPw) {
+  const cu = new URL(location.href);
+  cu.searchParams.delete('key'); cu.searchParams.delete('pw');
+  history.replaceState({}, '', cu.pathname + (cu.search || '') + (cu.hash || ''));
+}
+
+const KEY = _urlKey || localStorage.getItem('subscription_key') || '';
+const PW  = _urlPw  || localStorage.getItem('owner_password') || '';
+const authPart = KEY ? '&key=' + encodeURIComponent(KEY) : (PW ? '&pw=' + encodeURIComponent(PW) : '');
+document.getElementById('username').value = (params.get('username') || '').replace('@','');
+document.getElementById('back-link').href = 'admin.html?' + (KEY ? 'key=' + encodeURIComponent(KEY) : (PW ? 'mode=owner&pw=' + encodeURIComponent(PW) : ''));
+
+const OVERLAYS = [
+  { icon:'💬', name:'شات البث', desc:'الرسائل + الإحصائيات الحية', page:'overlay.html', userParam:'user', size:'480 × 900', color:'#06b6d4', chatOpts:true },
+  { icon:'🎰', name:'العجلة', desc:'عجلة الحظ والسحب', page:'wheel-overlay.html', userParam:'username', size:'1920 × 1080', color:'#ffd700' },
+  { icon:'🔐', name:'كلمة السر', desc:'الحروف والكشف التدريجي', page:'password-overlay.html', userParam:'username', size:'1920 × 1080', color:'#0891b2' },
+  { icon:'⚔️', name:'حرب الكلمات', desc:'الفريقان والنقاط', page:'word-war-overlay.html', userParam:'username', size:'1920 × 1080', color:'#ef4444' },
+  { icon:'❓', name:'سؤال وجواب', desc:'السؤال والخيارات', page:'quiz-overlay.html', userParam:'username', size:'1920 × 1080', color:'#a57afa' },
+  { icon:'🎯', name:'التصويت', desc:'الاستفتاء والنسب الحية', page:'poll-overlay.html', userParam:'username', size:'1920 × 1080', color:'#f59e0b' },
+  { icon:'🔮', name:'خمن الكلمة', desc:'الحروف والتلميح والفائزون', page:'guess-overlay.html', userParam:'username', size:'1920 × 1080', color:'#1dba72' },
+  { icon:'🏆', name:'بطولة الخروج', desc:'الأسئلة والإقصاء', page:'knockout-overlay.html', userParam:'username', size:'1920 × 1080', color:'#ff6b9d' },
+];
+
+// 🚨 تحذير إذا الـ KEY فاضي - الأوفرلاي ما راح يشتغل
+if (!KEY && !PW) {
+  const warn = document.createElement('div');
+  warn.style.cssText = 'background:rgba(239,68,68,.15);border:1.5px solid #ef4444;padding:14px;border-radius:10px;margin-bottom:14px;color:#fecaca;text-align:center;font-weight:700';
+  warn.innerHTML = '⚠️ لم يتم العثور على مفتاح الاشتراك — الأوفرلاي لن يشتغل في TikTok LIVE Studio<br><a href="admin.html" style="color:#25f4ee;text-decoration:underline;margin-top:6px;display:inline-block">🔙 ارجع للوحة الإدارة أولاً</a>';
+  document.body.insertBefore(warn, document.body.firstChild);
+}
+
+function buildUrl(ov) {
+  const u = document.getElementById('username').value.trim().replace('@','');
+  if (!u) return '';
+  let url = location.origin + '/' + ov.page + '?' + ov.userParam + '=' + encodeURIComponent(u) + authPart;
+  if (document.getElementById('opt-mobile').checked) url += '&mobile=1';
+  if (ov.chatOpts) {
+    const side = document.getElementById('chat-side').value;
+    const stats = document.getElementById('chat-stats').checked ? '1' : '0';
+    const max = parseInt(document.getElementById('chat-max').value) || 8;
+    url += '&side=' + side + '&stats=' + stats + '&max=' + max;
+  }
+  return url;
+}
+
+function renderGrid() {
+  document.getElementById('ov-grid').innerHTML = OVERLAYS.map((ov, i) => `
+    <div class="ov" style="--c:${ov.color}">
+      <div class="head">
+        <span class="gi">${ov.icon}</span>
+        <div><div class="gn">${ov.name}</div><div class="gs">${ov.desc}</div></div>
+        <span class="size">📐 ${ov.size}</span>
+      </div>
+      ${ov.chatOpts ? `<div class="chat-opts">
+        <label class="copt">الجهة: <select id="chat-side" onchange="genAll()"><option value="right">يمين</option><option value="left">يسار</option></select></label>
+        <label class="copt"><input type="checkbox" id="chat-stats" checked onchange="genAll()" style="accent-color:var(--accent2)"> إظهار الإحصائيات</label>
+        <label class="copt">عدد الرسائل: <input type="number" id="chat-max" value="8" min="3" max="20" style="width:55px" oninput="genAll()"></label>
+      </div>` : ''}
+      <div class="url-row">
+        <div class="url-box" id="url-${i}">—</div>
+        <button class="btn-copy" id="copy-${i}" onclick="copyUrl(${i})">📋 نسخ</button>
+        <a class="btn-prev" id="prev-${i}" href="#" target="_blank">👁</a>
+      </div>
+    </div>`).join('');
+}
+
+function genAll() {
+  OVERLAYS.forEach((ov, i) => {
+    const url = buildUrl(ov);
+    document.getElementById('url-' + i).textContent = url || 'اكتب اليوزرنيم فوق أولاً';
+    const prev = document.getElementById('prev-' + i);
+    if (url) { prev.href = url; prev.style.pointerEvents = ''; prev.style.opacity = ''; }
+    else { prev.removeAttribute('href'); prev.style.pointerEvents = 'none'; prev.style.opacity = '.4'; }
+  });
+}
+
+function copyUrl(i) {
+  const url = buildUrl(OVERLAYS[i]);
+  if (!url) { showToast('اكتب اليوزرنيم أولاً'); return; }
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copy-' + i);
+    btn.textContent = '✓ تم النسخ'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 نسخ'; btn.classList.remove('copied'); }, 1500);
+    showToast('انسخ الرابط في Browser Source داخل OBS 🎉');
+  });
+}
+
+function showToast(t) {
+  const el = document.getElementById('toast');
+  el.textContent = t; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+renderGrid();
+genAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تسجيل دخول — BthLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#06060b;--surface:rgba(255,255,255,.03);--surface2:rgba(255,255,255,.06);--border:rgba(255,255,255,.06);--accent:#ff0050;--accent2:#0891b2;--text:#f0f0f5;--muted:#555;--green:#1dba72;--red:#ef4444}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Tajawal',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .container{max-width:440px;width:100%}
+  .logo{text-align:center;margin-bottom:28px}
+  .logo h1{font-size:24px;font-weight:900} .logo h1 span{color:var(--accent2)}
+  .logo p{color:var(--muted);font-size:13px;margin-top:4px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:0;overflow:hidden}
+  .tabs{display:flex;border-bottom:1px solid var(--border)}
+  .tab{flex:1;padding:14px;text-align:center;background:transparent;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:var(--muted);transition:all .15s;position:relative}
+  .tab.active{color:var(--accent2)}
+  .tab.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:2px;background:var(--accent2);border-radius:2px}
+  .tab:hover{color:var(--text)}
+  .tab-content{padding:24px;display:none}
+  .tab-content.active{display:block}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .field input{width:100%;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:15px;text-align:center;letter-spacing:1px;direction:ltr;transition:border-color .2s}
+  .field input:focus{border-color:var(--accent2);outline:none}
+  .field input::placeholder{color:var(--muted);letter-spacing:0}
+  .btn{width:100%;padding:14px;border:none;border-radius:12px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s}
+  .btn:hover{opacity:.9;transform:translateY(-1px)}
+  .btn-sub{background:var(--accent2);color:#000}
+  .btn-owner{background:var(--accent);color:#fff}
+  .msg{text-align:center;margin-top:12px;font-size:13px;padding:10px;border-radius:8px;display:none}
+  .msg.error{display:block;background:rgba(239,68,68,.1);color:var(--red)}
+  .msg.success{display:block;background:rgba(29,186,114,.1);color:var(--green)}
+
+  /* Light mode */
+  body.light{--bg:#f5f5f7;--surface:rgba(0,0,0,.03);--surface2:rgba(0,0,0,.05);--border:rgba(0,0,0,.08);--text:#1a1a2e;--muted:#888;--accent:#ff0050;--accent2:#0891b2;--green:#16a34a;--red:#dc2626}
+  body.light .tab.active{background:#0891b2;color:#fff;border-color:#0891b2}
+  body.light .btn-sub{background:#0891b2}
+  body.light .subscribe-box{background:rgba(255,255,255,.5);border-color:rgba(0,0,0,.08)}
+  body.light .nav-btn{background:#0891b2}
+
+  .theme-toggle{position:fixed;bottom:20px;left:20px;z-index:100;width:40px;height:40px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .2s;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+  .theme-toggle:hover{transform:scale(1.1)}
+  .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:12px}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+  .subscribe-box{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;margin-top:0}
+  .subscribe-title{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--accent2)}
+  .subscribe-desc{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .price-inline{display:flex;align-items:baseline;gap:4px;justify-content:center;margin-bottom:14px}
+  .price-inline .num{font-size:28px;font-weight:900;color:var(--text)}
+  .price-inline .unit{font-size:13px;color:var(--muted)}
+  .mysr-form{margin-top:12px}
+  .trust-mini{display:flex;justify-content:center;gap:14px;margin-top:12px;font-size:10px;color:var(--muted)}
+  .back{text-align:center;margin-top:16px}
+  .back a{color:var(--muted);font-size:13px;text-decoration:none}
+  .back a:hover{color:var(--accent2)}
+  @media(max-width:500px){
+    body{padding:20px 12px}
+    .card{padding:20px 16px}
+    h1{font-size:22px}
+    .tabs{flex-direction:column;gap:6px}
+    .tab{padding:10px}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">
+    <h1><img src="/logo.svg" alt="BthLab" style="height:36px;vertical-align:middle;margin-left:6px"> <span>BthLab</span></h1>
+    <p>سجل دخول أو اشترك للوصول للفعاليات</p>
+  </div>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('sub')">🎫 مشترك</button>
+      <button class="tab" onclick="switchTab('subscribe')">🚀 اشتراك جديد</button>
+      <button class="tab" onclick="switchTab('owner')">👑 مالك</button>
+    </div>
+
+    <!-- Tab: Login with key -->
+    <div class="tab-content active" id="tab-sub">
+      <div class="field">
+        <label>مفتاح الاشتراك</label>
+        <input type="text" id="sub-key" placeholder="TLR-XXXXXXXX" dir="ltr">
+      </div>
+      <button class="btn btn-sub" onclick="loginSub()">🔓 دخول</button>
+      <div class="msg" id="sub-msg"></div>
+      <div style="text-align:center;margin-top:12px">
+        <a href="#" onclick="showForgot();return false" style="color:var(--muted);font-size:12px;text-decoration:none">نسيت المفتاح؟</a>
+      </div>
+      <div id="forgot-section" style="display:none;margin-top:12px;padding:14px;background:var(--surface2);border-radius:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">🔑 استرجاع المفتاح</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">ادخل الإيميل اللي سجلت فيه وبنرسل لك المفتاح</div>
+        <input type="email" id="forgot-email" placeholder="email@example.com" dir="ltr" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:13px;padding:10px;border-radius:8px;outline:none;margin-bottom:8px">
+        <button onclick="recoverKey()" style="width:100%;background:var(--accent2);color:#000;border:none;font-family:inherit;font-size:13px;font-weight:700;padding:10px;border-radius:8px;cursor:pointer">📩 أرسل المفتاح</button>
+        <div class="msg" id="forgot-msg" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- Tab: New subscription -->
+    <div class="tab-content" id="tab-subscribe">
+      <div class="subscribe-box">
+        <div class="subscribe-title">🚀 اشترك الحين</div>
+        <div class="subscribe-desc">ادفع واحصل على مفتاح الدخول فوراً</div>
+        <div class="price-inline">
+          <span class="num">80</span>
+          <span class="unit">ريال / شهرياً</span>
+        </div>
+        <div class="field">
+          <label>الاسم</label>
+          <input type="text" id="sub-name" placeholder="اسمك" style="text-align:right;letter-spacing:0">
+        </div>
+        <div class="field">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="sub-email" placeholder="email@example.com" dir="ltr" style="text-align:left;letter-spacing:0">
+        </div>
+        <div style="text-align:center;margin-bottom:16px">
+          <span style="font-size:18px;color:var(--muted);text-decoration:line-through;margin-left:6px">150</span>
+          <span style="font-size:28px;font-weight:900;color:var(--text)">80</span>
+          <span style="font-size:14px;color:var(--muted)">ريال / شهر</span>
+          <div style="display:inline-block;padding:3px 10px;background:rgba(239,68,68,.1);color:#ef4444;border-radius:6px;font-size:11px;font-weight:700;margin-right:6px">خصم 47%</div>
+        </div>
+        <a href="https://wa.me/966552608556?text=%D8%A3%D8%A8%D9%8A%20%D8%A3%D8%B4%D8%AA%D8%B1%D9%83%20%D9%81%D9%8A%20BthLab" target="_blank" class="btn btn-sub" style="background:#25D366;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:#fff">💬 اشترك عبر واتساب</a>
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">تواصل معنا وبنفعّل اشتراكك خلال دقائق</div>
+        <div class="trust-mini">
+          <span>🔒 دفع آمن</span>
+          <span>💳 تحويل بنكي</span>
+          <span>↩️ استرجاع 3 أيام</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Owner login -->
+    <div class="tab-content" id="tab-owner">
+      <div class="field">
+        <label>كلمة المرور</label>
+        <input type="password" id="owner-pw" placeholder="••••••••">
+      </div>
+      <button class="btn btn-owner" onclick="loginOwner()">👑 دخول المالك</button>
+      <div class="msg" id="owner-msg"></div>
+    </div>
+  </div>
+  <div class="back"><a href="/">← الرئيسية</a></div>
+  <div style="text-align:center;padding:20px 16px;font-size:11px;color:#444;margin-top:24px;border-top:1px solid rgba(255,255,255,.06)">© 2026 BthLab. جميع الحقوق محفوظة.</div>
+</div>
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀️</button>
+<script>
+function switchTab(t) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + t).classList.add('active');
+  const tabs = document.querySelectorAll('.tab');
+  const idx = t === 'sub' ? 0 : t === 'subscribe' ? 1 : 2;
+  tabs[idx].classList.add('active');
+}
+
+const savedKey = localStorage.getItem('subscription_key');
+if (savedKey) document.getElementById('sub-key').value = savedKey;
+
+// Generate unique device ID (persists in localStorage)
+function getDeviceId() {
+  let id = localStorage.getItem('bthlab_device_id');
+  if (!id) {
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    id = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem('bthlab_device_id', id);
+  }
+  return id;
+}
+
+async function loginSub() {
+  const key = document.getElementById('sub-key').value.trim();
+  const msg = document.getElementById('sub-msg');
+  if (!key) { msg.className = 'msg error'; msg.textContent = 'أدخل مفتاح الاشتراك'; return; }
+  const deviceId = getDeviceId();
+  const res = await fetch('/api/validate-key?key=' + encodeURIComponent(key) + '&deviceId=' + encodeURIComponent(deviceId));
+  const data = await res.json();
+  if (data.valid) {
+    localStorage.setItem('subscription_key', key);
+    msg.className = 'msg success';
+    msg.textContent = 'مرحباً ' + (data.name || '') + '! جاري التحويل...';
+    setTimeout(() => { window.location.href = '/admin.html?mode=subscriber&key=' + encodeURIComponent(key); }, 800);
+  } else if (data.expired) {
+    msg.className = 'msg error'; msg.textContent = 'انتهى اشتراكك — جدد من تبويب "اشتراك جديد"';
+  } else if (data.error) {
+    msg.className = 'msg error'; msg.textContent = data.error;
+  } else {
+    msg.className = 'msg error'; msg.textContent = 'مفتاح غير صالح';
+  }
+}
+
+async function loginOwner() {
+  const pw = document.getElementById('owner-pw').value.trim();
+  const msg = document.getElementById('owner-msg');
+  if (!pw) { msg.className = 'msg error'; msg.textContent = 'أدخل كلمة المرور'; return; }
+  const res = await fetch('/api/validate-owner', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password: pw }) });
+  const data = await res.json();
+  if (data.valid) {
+    localStorage.setItem('owner_password', pw);
+    msg.className = 'msg success'; msg.textContent = 'مرحباً! جاري التحويل...';
+    setTimeout(() => { window.location.href = '/admin.html?mode=owner&pw=' + encodeURIComponent(pw); }, 800);
+  } else {
+    msg.className = 'msg error'; msg.textContent = 'كلمة المرور خاطئة';
+  }
+}
+
+document.getElementById('sub-key').addEventListener('keydown', e => { if(e.key==='Enter') loginSub(); });
+document.getElementById('owner-pw').addEventListener('keydown', e => { if(e.key==='Enter') loginOwner(); });
+
+function showForgot() {
+  const sec = document.getElementById('forgot-section');
+  sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+}
+
+async function recoverKey() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const msg = document.getElementById('forgot-msg');
+  if (!email) { msg.className = 'msg error'; msg.textContent = 'ادخل إيميلك'; return; }
+  const res = await fetch('/api/recover-key', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email }) });
+  const data = await res.json();
+  if (data.ok) {
+    msg.className = 'msg success'; msg.textContent = '✅ تم إرسال المفتاح على إيميلك';
+  } else {
+    msg.className = 'msg error'; msg.textContent = data.error || 'ما لقينا اشتراك بهذا الإيميل';
+  }
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  const isLight = document.body.classList.contains('light');
+  document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+if (localStorage.getItem('theme') === 'light') {
+  document.body.classList.add('light');
+  document.getElementById('theme-toggle').textContent = '🌙';
+}
+
+// StreamPay payment
+async function startPayment() {
+  const name = document.getElementById('sub-name').value.trim();
+  const email = document.getElementById('sub-email').value.trim();
+  const tiktokUsername = document.getElementById('sub-tiktok').value.trim();
+  const msg = document.getElementById('pay-msg');
+  const btn = document.getElementById('pay-btn');
+  if (!name) { msg.className='msg error'; msg.textContent='ادخل اسمك'; return; }
+  if (!email) { msg.className='msg error'; msg.textContent='ادخل إيميلك'; return; }
+  if (!tiktokUsername) { msg.className='msg error'; msg.textContent='ادخل يوزرنيم التيك توك'; return; }
+  btn.disabled = true; btn.textContent = '...جاري التحويل';
+  msg.className=''; msg.textContent='';
+  try {
+    const res = await fetch('/api/create-payment', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name, email, tiktokUsername }),
+    });
+    const data = await res.json();
+    if (data.ok && data.url) {
+      msg.className='msg success'; msg.textContent='✅ جاري التحويل لصفحة الدفع...';
+      setTimeout(() => { window.location.href = data.url; }, 500);
+    } else {
+      msg.className='msg error'; msg.textContent = data.error || 'حصل خطأ';
+      btn.disabled = false; btn.textContent = '💳 ادفع 80 ريال';
+    }
+  } catch(e) {
+    msg.className='msg error'; msg.textContent='خطأ في الاتصال';
+    btn.disabled = false; btn.textContent = '💳 ادفع 80 ريال';
+  }
+}
+</script>
+</body>
+</html>

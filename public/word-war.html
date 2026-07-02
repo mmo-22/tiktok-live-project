@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>حرب الكلمات - تحكم</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  :root{--bg:#0d0d14;--surface:#181824;--surface2:#242436;--border:#2d2d40;--text:#f0f0f5;--muted:#9a9ab0;--accent:#ff0050;--accent2:#0891b2;--red:#ef4444;--blue:#3b82f6;--orange:#fb923c}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Tajawal',sans-serif;padding:20px;min-height:100vh}
+  .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+  .header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--surface);border-radius:12px}
+  .header h1{font-size:22px}
+  .badge{font-size:12px;padding:4px 12px;border-radius:20px;background:var(--surface2);color:var(--muted)}
+  .badge.active{background:#1dba72;color:#fff}
+  .badge.auto{background:var(--orange);color:#fff}
+  .card{background:var(--surface);border-radius:14px;padding:16px;border:1px solid var(--border)}
+  .card-title{font-size:15px;font-weight:700;margin-bottom:12px;color:var(--accent2)}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .field input,.field select,.field textarea{width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:14px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{padding:11px 16px;border:none;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;font-size:14px}
+  .btn-auto{background:var(--orange);color:#fff;flex:1}
+  .btn-auto.on{background:#dc2626}
+  .btn-start{background:var(--accent2);color:#000;flex:1}
+  .btn-stop{background:var(--accent);color:#fff;flex:1}
+  .cat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .cat-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;text-align:center;transition:all .15s}
+  .cat-card:hover{border-color:var(--accent2);background:rgba(37,244,238,.05)}
+  .cat-card.used{opacity:.3}
+  .cat-icon{font-size:28px;margin-bottom:6px}
+  .cat-name{font-size:14px;font-weight:700}
+  .cat-count{font-size:11px;color:var(--muted)}
+
+  .live-board{display:flex;gap:12px}
+  .live-team{flex:1;border-radius:12px;padding:14px;min-height:150px}
+  .live-team.red{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2)}
+  .live-team.blue{background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2)}
+  .live-team-title{font-size:15px;font-weight:900;margin-bottom:8px}
+  .live-team.red .live-team-title{color:var(--red)}
+  .live-team.blue .live-team-title{color:var(--blue)}
+  .live-score-big{font-size:36px;font-weight:900;color:#fff;margin-bottom:8px}
+  .live-words{font-size:12px;color:var(--muted);line-height:1.8}
+  .live-word{display:inline-block;padding:2px 8px;margin:2px;border-radius:12px;font-weight:500}
+  .live-team.red .live-word{background:rgba(239,68,68,.12);color:#fca5a5}
+  .live-team.blue .live-word{background:rgba(59,130,246,.12);color:#93c5fd}
+  .live-vs{font-size:24px;font-weight:900;color:rgba(255,255,255,.15);align-self:center}
+
+  .timer-display{text-align:center;font-size:42px;font-weight:900;color:var(--accent2);margin:8px 0}
+  .timer-display.warning{color:#f59e0b}
+  .timer-display.ended{color:var(--accent)}
+
+  .history-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:10px;margin-bottom:6px}
+  .history-cat{flex:1;font-weight:700;font-size:13px}
+  .history-score{font-weight:900;font-size:14px}
+  .history-score.red-win{color:var(--red)}
+  .history-score.blue-win{color:var(--blue)}
+  .history-score.tie{color:var(--orange)}
+  .empty{text-align:center;padding:24px;color:var(--muted);font-size:13px}
+  .overlay-link{background:var(--surface2);padding:10px;border-radius:8px;font-family:monospace;font-size:12px;word-break:break-all;cursor:pointer}
+
+  .answers-panel{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:12px;display:none}
+  .answers-panel.show{display:block}
+  .answers-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .answers-title{font-size:14px;font-weight:700;color:var(--accent2)}
+  .answers-count{font-size:12px;color:var(--muted)}
+  .answers-grid{display:flex;flex-wrap:wrap;gap:6px;max-height:200px;overflow-y:auto}
+  .answer-chip{font-size:12px;padding:4px 10px;border-radius:8px;font-weight:600;background:rgba(37,244,238,.06);color:var(--accent2);border:1px solid rgba(37,244,238,.1)}
+  .answer-chip.used{background:rgba(29,186,114,.1);color:var(--green);border-color:rgba(29,186,114,.2);text-decoration:line-through;opacity:.5}
+
+  .team-members{margin-top:8px;display:flex;flex-wrap:wrap;gap:4px}
+  .member-chip{font-size:11px;padding:3px 8px;border-radius:12px;font-weight:600}
+  .member-chip.red{background:rgba(239,68,68,.12);color:#fca5a5}
+  .member-chip.blue{background:rgba(59,130,246,.12);color:#93c5fd}
+  .team-count{font-size:12px;font-weight:700;margin-top:4px}
+  .team-count.red{color:var(--red)}
+  .team-count.blue{color:var(--blue)}
+
+  .feed-box{max-height:200px;overflow-y:auto;margin-top:12px}
+  .feed-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;margin-bottom:4px;font-size:12px;animation:fadeIn .3s}
+  .feed-item.red{background:rgba(239,68,68,.06);border-right:3px solid var(--red)}
+  .feed-item.blue{background:rgba(59,130,246,.06);border-right:3px solid var(--blue)}
+  .feed-item.join{background:rgba(251,191,36,.06);border-right:3px solid var(--orange)}
+  .feed-name{font-weight:700;color:var(--text);min-width:60px}
+  .feed-word{flex:1;color:var(--muted)}
+  .feed-team{font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px}
+  .feed-team.red{background:rgba(239,68,68,.15);color:#fca5a5}
+  .feed-team.blue{background:rgba(59,130,246,.15);color:#93c5fd}
+  @keyframes fadeIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+
+  .players-grid{display:flex;gap:12px;margin-top:12px}
+  .players-col{flex:1;border-radius:10px;padding:10px}
+  .players-col.red{background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.12)}
+  .players-col.blue{background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.12)}
+  .players-col-title{font-size:13px;font-weight:700;margin-bottom:8px}
+  .players-col.red .players-col-title{color:var(--red)}
+  .players-col.blue .players-col-title{color:var(--blue)}
+  .player-row{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px}
+  .player-row .name{flex:1;font-weight:600;color:var(--text)}
+  .player-row .count{color:var(--muted);font-weight:700}
+
+  .open-overlay-btn { display:inline-flex; align-items:center; gap:7px; background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; border:none; font-family:inherit; font-size:13px; font-weight:900; padding:9px 16px; border-radius:10px; cursor:pointer; text-decoration:none; transition:.2s; box-shadow:0 8px 20px -8px #8b5cf6; }
+  .open-overlay-btn:hover { transform:translateY(-2px); box-shadow:0 12px 26px -8px #8b5cf6; }
+  .overlay-actions { display:flex; gap:8px; align-items:stretch; margin-top:6px; flex-wrap:wrap; }
+  .overlay-actions .overlay-link { flex:1; min-width:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>⚔️ حرب الكلمات</h1>
+    <span class="badge" id="status-badge">متوقف</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚙️ الإعدادات</div>
+    <div class="row3">
+      <div class="field"><label>مدة الجولة (ثواني)</label><input type="number" id="duration" value="60" min="15" max="120"></div>
+      <div class="field"><label>وقت الانتظار (ثواني)</label><input type="number" id="wait-time" value="8" min="3" max="20"></div>
+      <div class="field"><label>الحساب</label><input type="text" id="username-input" placeholder="@username"></div>
+    </div>
+  </div>
+
+  <div class="card" id="reg-card" style="border-color:rgba(251,191,36,.3)">
+    <div class="card-title" style="color:var(--orange)">📝 المرحلة 1: تسجيل الفرق</div>
+    <div class="row3">
+      <div class="field"><label>🔴 كلمة دخول الأحمر</label><input type="text" id="red-keyword" value="أحمر" placeholder="مثال: نار"></div>
+      <div class="field"><label>🔵 كلمة دخول الأزرق</label><input type="text" id="blue-keyword" value="أزرق" placeholder="مثال: بحر"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="reg-btn" onclick="toggleRegistration()" style="flex:1;background:#1dba72;color:#fff;font-size:15px">📝 فتح التسجيل</button>
+      <button class="btn" onclick="clearTeams()" style="flex:0;background:var(--surface2);border:1px solid var(--border);color:var(--red);font-size:13px;white-space:nowrap">🗑️ حذف الأعضاء</button>
+    </div>
+    <div id="reg-status" style="text-align:center;margin-top:12px;font-size:13px;color:var(--muted);display:none">
+      <span id="reg-status-text">التسجيل مفتوح — المشاهدين يكتبون كلمة الفريق</span>
+    </div>
+    <div class="players-grid" style="margin-top:12px">
+      <div class="players-col red">
+        <div class="players-col-title">🔴 الفريق الأحمر (<span id="red-player-count">0</span>)</div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <input type="text" id="add-red-name" placeholder="اسم اللاعب" style="flex:1;padding:6px 10px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:6px;color:var(--text);font-family:inherit;font-size:12px">
+          <button onclick="addManualPlayer('red')" style="padding:6px 10px;background:var(--red);color:#fff;border:none;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">+ أضف</button>
+        </div>
+        <div id="red-players"><div class="empty" style="padding:12px">لا يوجد لاعبين</div></div>
+      </div>
+      <div class="players-col blue">
+        <div class="players-col-title">🔵 الفريق الأزرق (<span id="blue-player-count">0</span>)</div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <input type="text" id="add-blue-name" placeholder="اسم اللاعب" style="flex:1;padding:6px 10px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);border-radius:6px;color:var(--text);font-family:inherit;font-size:12px">
+          <button onclick="addManualPlayer('blue')" style="padding:6px 10px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer">+ أضف</button>
+        </div>
+        <div id="blue-players"><div class="empty" style="padding:12px">لا يوجد لاعبين</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🗂️ المرحلة 2: اختر الفئة وابدأ</div>
+    <div class="cat-grid" id="cat-grid"></div>
+    <div class="answers-panel" id="answers-panel">
+      <div class="answers-header">
+        <span class="answers-title" id="answers-cat-name">📋 الإجابات</span>
+        <span class="answers-count" id="answers-count">0 كلمة</span>
+      </div>
+      <div class="answers-grid" id="answers-grid"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">👁️ الجولة الحالية</div>
+    <div class="timer-display" id="timer-display" style="display:none">00</div>
+    <div class="live-board" id="live-board">
+      <div class="live-team red">
+        <div class="live-team-title">🔴 الأحمر</div>
+        <div class="live-score-big" id="live-red">0</div>
+        <div class="team-count red" id="red-count">0 لاعب</div>
+        <div class="live-words" id="live-red-words"></div>
+      </div>
+      <div class="live-vs">VS</div>
+      <div class="live-team blue">
+        <div class="live-team-title">🔵 الأزرق</div>
+        <div class="live-score-big" id="live-blue">0</div>
+        <div class="team-count blue" id="blue-count">0 لاعب</div>
+        <div class="live-words" id="live-blue-words"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📡 آخر الأحداث</div>
+    <div class="feed-box" id="feed-box"><div class="empty">في انتظار بدء الجولة...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎮 التحكم</div>
+    <div class="actions" style="margin-bottom:8px">
+      <button class="btn btn-auto" id="auto-btn" onclick="toggleAuto()">▶ أوتوماتيك</button>
+    </div>
+    <div class="actions">
+      <button class="btn btn-start" onclick="nextCategory()">⏭ الفئة التالية</button>
+      <button class="btn" onclick="newRound()" style="background:#a855f7;color:#fff;flex:1">🔄 جولة جديدة (حذف الفرق)</button>
+      <button class="btn btn-stop" onclick="stopGame()">⏹ إيقاف</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:0">📊 سجل الجولات</div>
+      <button class="btn" style="font-size:12px;padding:4px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--muted)" onclick="clearHistory()">مسح</button>
+    </div>
+    <div id="history-list"><div class="empty">لا يوجد جولات سابقة</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔗 رابط الـ Overlay</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="overlay-actions"><div class="overlay-link" id="overlay-link" style="flex:1">—</div><a class="open-overlay-btn" href="#" id="open-overlay-link" target="_blank" rel="noopener" onclick="return openOverlayInNewTab(this)">🚀 فتح الأوفرلاي</a></div>
+      <button class="btn" onclick="copyLink()" style="background:var(--accent2);color:#000;padding:10px 16px;font-size:13px">📋 نسخ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// 🔒 sanitize URL — حفظ المفاتيح وتنظيف الرابط
+(function(){
+  var p = new URLSearchParams(location.search);
+  var k = p.get('key'), pw = p.get('pw');
+  if (k) localStorage.setItem('subscription_key', k);
+  if (pw) localStorage.setItem('owner_password', pw);
+  if (k || pw) {
+    var cu = new URL(location.href);
+    cu.searchParams.delete('key'); cu.searchParams.delete('pw');
+    history.replaceState({}, '', cu.pathname + (cu.search || '') + (cu.hash || ''));
+  }
+})();
+
+const CATEGORIES = [
+  {name:"فواكه",icon:"🍎",words:["تفاح","موز","برتقال","عنب","فراولة","مانجو","اناناس","بطيخ","رمان","كيوي","تين","خوخ","مشمش","كرز","توت","جوافة","كمثرى","ليمون","بابايا","جريب فروت","تمر","زيتون","افوكادو","يوسفي","نارنج","كاكا","تفاح اخضر","توت ارضي","شمام","كنتالوب","نكتارين","دراقن","جوز هند","صبار","ليتشي","باشن فروت","تانجرين","جاك فروت","رامبوتان","دوريان"]},
+  {name:"خضار",icon:"🥬",words:["طماطم","خيار","بصل","ثوم","جزر","بطاطس","فلفل","باذنجان","كوسة","ملفوف","بروكلي","سبانخ","ذرة","فجل","بقدونس","نعناع","جرجير","خس","بامية","ملوخية","كزبرة","شبت","زنجبيل","فطر","قرع","بازلاء","لوبيا","فاصوليا","شمندر","كرفس","هليون","زهرة","بطاطا حلوة","فقع","خرشوف","سلق","رجلة","جرجير مائي","كرنب","فلفل حار"]},
+  {name:"حيوانات",icon:"🐾",words:["اسد","فيل","زرافة","نمر","دب","ذئب","ثعلب","قرد","حصان","جمل","غزال","فهد","وعل","ارنب","قط","كلب","بقرة","خروف","دجاجة","نسر","صقر","حمام","ببغاء","تمساح","ثعبان","سلحفاة","دلفين","حوت","اخطبوط","سمكة","فراشة","نحلة","نملة","عقرب","طاووس","بومة","فلامنقو","كنغر","باندا","كركدن","حمار وحشي","ضبع","قندس","قنفذ","راكون","خفاش","سنجاب","موظ","ثور","بغل","حمار","ماعز","بط","وز","ديك رومي"]},
+  {name:"دول عربية",icon:"🌍",words:["السعودية","مصر","الامارات","الكويت","قطر","البحرين","عمان","اليمن","العراق","سوريا","لبنان","الاردن","فلسطين","ليبيا","تونس","الجزائر","المغرب","موريتانيا","السودان","الصومال","جيبوتي","جزر القمر"]},
+  {name:"دول العالم",icon:"🌏",words:["امريكا","بريطانيا","فرنسا","المانيا","ايطاليا","اسبانيا","البرازيل","الارجنتين","اليابان","الصين","الهند","كوريا","تركيا","ايران","باكستان","استراليا","كندا","المكسيك","روسيا","بولندا","هولندا","بلجيكا","السويد","النرويج","سويسرا","البرتغال","اليونان","تايلاند","ماليزيا","اندونيسيا","نيوزيلندا","جنوب افريقيا","نيجيريا","كولومبيا","تشيلي","بيرو","فنزويلا","كوبا","فيتنام","الفلبين","بنغلاديش","سريلانكا","نيبال","اثيوبيا","كينيا","تنزانيا","غانا","اوكرانيا","رومانيا","التشيك"]},
+  {name:"عواصم",icon:"🏛️",words:["الرياض","القاهرة","لندن","باريس","طوكيو","واشنطن","بكين","موسكو","برلين","مدريد","روما","انقرة","بغداد","دمشق","عمان","الدوحة","ابوظبي","الكويت","الرباط","تونس","الجزائر","بيروت","كابول","نيودلهي","جاكرتا","كوالالمبور","اوتاوا","برازيليا","بوينس ايرس","ليما","بوغوتا","مكسيكو سيتي","هافانا","لشبونة","اثينا","فيينا","بروكسل","امستردام","ستوكهولم","اوسلو","كوبنهاغن","هلسنكي","وارسو","بودابست","براغ","بوخارست","كييف","نيروبي","اديس ابابا"]},
+  {name:"مدن سعودية",icon:"🇸🇦",words:["الرياض","جدة","مكة","المدينة","الدمام","ابها","تبوك","حائل","جيزان","نجران","الطائف","ينبع","الخبر","الظهران","بريدة","عنيزة","سكاكا","الباحة","القطيف","الاحساء","الجبيل","رابغ","القنفذة","شرورة","عرعر","تيماء","العلا","خميس مشيط","الخرج","وادي الدواسر","بيشة","محايل","الدوادمي","المجمعة","الزلفي","رفحاء","طريف","الوجه","ضباء","ليلى","املج","البكيرية","النماص","المذنب","تثليث"]},
+  {name:"اندية كرة قدم",icon:"⚽",words:["الهلال","النصر","الاهلي","الاتحاد","الشباب","الفتح","الرائد","الفيحاء","الخليج","الطائي","ريال مدريد","برشلونة","بايرن ميونخ","ليفربول","مانشستر سيتي","تشيلسي","ارسنال","يوفنتوس","ميلان","انتر ميلان","باريس سان جيرمان","دورتموند","اتلتيكو مدريد","توتنهام","مانشستر يونايتد","اياكس","بنفيكا","بورتو","غلطة سراي","الاهلي المصري","الزمالك","الرجاء","الوداد","الترجي","النجم الساحلي"]},
+  {name:"ماركات سيارات",icon:"🚗",words:["تويوتا","هوندا","نيسان","مرسيدس","بي ام دبليو","اودي","فولكسفاغن","فورد","شيفروليه","هيونداي","كيا","مازدا","سوبارو","لكزس","بورش","فيراري","لامبورغيني","بنتلي","رولز رويس","جيب","لاند روفر","فولفو","بيجو","رينو","سوزوكي","ميتسوبيشي","تسلا","جنسس","انفينيتي","استون مارتن","ماكلارين","بوقاتي","مازيراتي","لوتس","كاديلاك","لينكولن","كرايسلر","دودج","جاكوار","مني كوبر"]},
+  {name:"ماركات عالمية",icon:"🏷️",words:["نايكي","اديداس","ابل","سامسونج","سوني","مايكروسوفت","قوقل","امازون","ستاربكس","ماكدونالدز","كوكاكولا","بيبسي","شانيل","قوتشي","لويس فيتون","زارا","ايكيا","نتفلكس","ديزني","تسلا","اوبر","بوما","ريبوك","فيرساتشي","ديور","برادا","رالف لورين","كارتييه","بربري","فندي","هيرميس","روليكس","كالفن كلاين","ليفايز","اتش اند ام","يونيكلو"]},
+  {name:"مهن",icon:"👨‍⚕️",words:["طبيب","مهندس","معلم","محامي","ممرض","صيدلي","طيار","شرطي","اطفائي","جندي","صحفي","مذيع","محاسب","مبرمج","مصمم","مصور","خياط","نجار","حداد","كهربائي","سباك","طباخ","فلاح","بائع","سائق","حلاق","بيطري","مترجم","رسام","موسيقي","عالم","قاضي","كاتب","ممثل","مخرج","مهندس معماري","جراح","طبيب اسنان","محقق","دبلوماسي"]},
+  {name:"الوان",icon:"🎨",words:["احمر","ازرق","اخضر","اصفر","برتقالي","بنفسجي","وردي","ابيض","اسود","رمادي","بني","ذهبي","فضي","نيلي","فيروزي","زيتي","بيج","نحاسي","كريمي","خمري","سماوي","كحلي","ليموني","مرجاني","زهري","عاجي","كاكي","تركوازي","لافندر","ماجنتا"]},
+  {name:"رياضات",icon:"🏅",words:["كرة قدم","كرة سلة","كرة طائرة","تنس","سباحة","ملاكمة","كاراتيه","جودو","تايكوندو","مصارعة","رماية","فروسية","دراجات","تزلج","جمباز","رفع اثقال","سباق سيارات","غوص","تجديف","كريكت","رقبي","هوكي","بيسبول","غولف","بولينغ","بلياردو","كرة يد","اسكواش","بادل","سهام","مبارزة","كيرلنغ","تسلق","كرة ماء","ترايثلون"]},
+  {name:"اكلات",icon:"🍽️",words:["كبسة","مندي","برياني","شاورما","فلافل","حمص","فول","كنافة","بقلاوة","مقلوبة","منسف","كشري","ملوخية","طحينة","تبولة","فتوش","ورق عنب","سمبوسة","لقيمات","هريسة","مطبق","مرقوق","جريش","قرصان","عريكة","معصوب","بيتزا","برجر","سوشي","باستا","تاكو","بوريتو","كاري","نودلز","فتة","مسخن","مجبوس","هريس","ثريد","بان كيك"]},
+  {name:"اجهزة الكترونية",icon:"📱",words:["ايفون","سامسونج","ايباد","لابتوب","تلفزيون","سماعة","ساعة ذكية","كاميرا","بلايستيشن","اكسبوكس","نينتندو","طابعة","ماوس","كيبورد","شاشة","سبيكر","ميكروفون","درون","بروجكتر","راوتر","فلاش ميموري","هارد دسك","شاحن","باور بانك","كابل","جهاز لوحي","ريسيفر","ساوند بار","ويب كام","ماسح ضوئي"]},
+  {name:"ملابس",icon:"👕",words:["قميص","بنطلون","فستان","تنورة","جاكيت","معطف","شماغ","عباية","ثوب","بشت","طاقية","حذاء","صندل","نعال","شراب","ربطة عنق","بلوزة","كنزة","شورت","بيجامة","قبعة","نظارة","ساعة","حزام","وشاح","قفاز","بلوفر","سويت شيرت","بدلة","جلابية","سروال","كوفية","منديل","بالطو","فيست"]},
+  {name:"مشروبات",icon:"☕",words:["قهوة","شاي","حليب","عصير","ماء","كابتشينو","لاتيه","موكا","نسكافيه","شاي اخضر","عصير برتقال","عصير تفاح","ليمون نعناع","سموذي","ميلك شيك","كركديه","يانسون","بابونج","زنجبيل","كاكاو","ماتشا","قهوة تركية","قهوة عربية","سحلب","تمر هندي","عرقسوس","قمر الدين","فيمتو","شاي كرك","ماء ورد"]},
+  {name:"ادوات مدرسية",icon:"📚",words:["قلم","دفتر","كتاب","ممحاة","مسطرة","حقيبة","مقص","صمغ","الوان","براية","طباشير","سبورة","حاسبة","فرجار","مثلث","خريطة","كرة","مجهر","بوصلة","اطلس","قلم رصاص","قلم حبر","ماركر","لاصق","دباسة","ثقابة","ملف","مغلف","مبراة","تقويم"]},
+  {name:"اعضاء الجسم",icon:"🫀",words:["قلب","رئة","كبد","معدة","دماغ","عين","اذن","انف","فم","يد","قدم","ركبة","كتف","ظهر","رقبة","اصبع","جلد","عظم","عضلة","كلية","امعاء","لسان","شفة","حاجب","رمش","فك","ضرس","مرفق","كاحل","معصم","ساق","فخذ","صدر","بطن","جبهة"]},
+  {name:"الطقس والطبيعة",icon:"🌦️",words:["شمس","قمر","نجوم","سحاب","مطر","رعد","برق","ثلج","رياح","عاصفة","ضباب","قوس قزح","بحر","نهر","جبل","صحراء","غابة","بركان","زلزال","اعصار","موجة","شلال","بحيرة","واحة","كهف","وادي","سهل","هضبة","جزيرة","مستنقع","ينبوع","تلة","مضيق","خليج","رمل"]},
+  {name:"ادوات المطبخ",icon:"🍳",words:["قدر","مقلاة","صحن","كوب","ملعقة","شوكة","سكين","خلاط","فرن","ميكرويف","ثلاجة","غسالة صحون","ابريق","مصفاة","لوح تقطيع","قشارة","هاون","صينية","قالب كيك","مضرب بيض","مبشرة","عصارة","محضرة طعام","غلاية","ترمس","مكبس ثوم","فتاحة","ميزان مطبخ","قفاز فرن","قدر ضغط"]},
+  {name:"وظائف حديثة",icon:"💼",words:["مبرمج","مصمم","يوتيوبر","مؤثر","مطور ويب","محلل بيانات","مدير محتوى","مصور فوتوغرافي","بودكاستر","مسوق رقمي","كاتب محتوى","مدرب حياة","مستشار","رائد اعمال","فريلانسر","مطور تطبيقات","مصمم جرافيك","مونتير","معلق صوتي","مدير سوشال ميديا"]},
+  {name:"عملات",icon:"💰",words:["ريال","دولار","يورو","جنيه","درهم","دينار","ليرة","روبية","ين","وون","بيزو","فرنك","كرونا","راند","باهت","رينغيت","زلوتي","روبل","شيكل","ريال عماني","دينار بحريني","دينار كويتي"]},
+  {name:"لغات العالم",icon:"🗣️",words:["عربي","انجليزي","فرنسي","اسباني","صيني","ياباني","كوري","الماني","ايطالي","برتغالي","روسي","تركي","هندي","فارسي","اوردو","ماليزي","اندونيسي","سواحلي","هولندي","يوناني","بولندي","تشيكي","سويدي","نرويجي","فنلندي","تايلندي","فيتنامي","بنغالي"]},
+  {name:"فضاء وكواكب",icon:"🚀",words:["شمس","قمر","ارض","مريخ","زحل","مشتري","عطارد","زهرة","اورانوس","نبتون","بلوتو","نجم","مجرة","كويكب","مذنب","ثقب اسود","محطة فضاء","رائد فضاء","صاروخ","قمر صناعي","تلسكوب","مدار","سديم","نيزك","درب التبانة","كوكبة","سوبر نوفا","بالسار"]},
+  {name:"حشرات وزواحف",icon:"🦎",words:["نحلة","نملة","فراشة","عنكبوت","صرصور","ذبابة","بعوضة","دعسوقة","جرادة","يعسوب","عقرب","خنفساء","دودة","سحلية","حرباء","ضفدع","وزغة","ثعبان","تمساح","سلحفاة","يرقة","صرار","بق","قملة","برغوث","سرعوف","حلزون","ابو بريص"]},
+  {name:"موسيقى والات",icon:"🎵",words:["عود","قيتار","بيانو","كمان","طبل","ناي","دف","ساكسفون","هارب","اكورديون","ترومبيت","تشيلو","ماندولين","اورغ","درمز","مزمار","ربابة","طنبور","قانون","سنطور","بانجو","يوكيليلي","هارمونيكا","فلوت","كلارينيت","تيوبا","سيتار"]},
+  {name:"مواد دراسية",icon:"📖",words:["رياضيات","عربي","انجليزي","علوم","فيزياء","كيمياء","احياء","تاريخ","جغرافيا","تربية اسلامية","حاسب","رسم","رياضة","اقتصاد","فلسفة","ادب","نحو","بلاغة","هندسة","احصاء","علم نفس","علم اجتماع","تصميم","موسيقى","مسرح"]},
+  {name:"اثاث البيت",icon:"🛋️",words:["كنبة","سرير","طاولة","كرسي","خزانة","مكتب","رف","مراة","ستارة","سجادة","وسادة","بطانية","لمبة","مروحة","مكيف","ثلاجة","غسالة","فرن","ميكرويف","تلفزيون","ساعة حائط","برواز","مزهرية","شماعة","حامل كتب","دولاب احذية","منضدة","كومودينو","طاولة قهوة","بوفيه"]},
+  {name:"وسائل نقل",icon:"🚌",words:["سيارة","طائرة","قطار","باص","دراجة","دراجة نارية","تاكسي","مترو","باخرة","قارب","يخت","هليكوبتر","جت","سكوتر","تلفريك","عربة","حافلة","ليموزين","اسعاف","شاحنة","فان","جرار","منطاد","غواصة","حنطور"]},
+  {name:"ازهار ونباتات",icon:"🌸",words:["ورد","ياسمين","فل","نرجس","بنفسج","توليب","لافندر","عباد الشمس","قرنفل","زنبق","اقحوان","صبار","نخلة","سرو","زيتون","ريحان","خزامى","كاميليا","بيغونيا","اوركيد","جهنمية","بامبو","كروتون","مارغريت","ديزي","هيبسكس","فتنة","بونساي"]},
+  {name:"العاب فيديو",icon:"🎮",words:["فورتنايت","ماينكرافت","روبلوكس","فيفا","جي تي اي","كول اوف ديوتي","ببجي","امونج اس","فالورانت","ليق اوف ليجندز","اوفرواتش","ايبكس","فورزا","ريزدنت ايفل","ماريو","سونيك","زيلدا","بوكيمون","تيكن","مورتال كومبات","اساسينز كريد","سبايدرمان","هالو","دارك سولز"]},
+  {name:"مواقع ومنصات",icon:"🌐",words:["يوتيوب","تيك توك","انستقرام","تويتر","فيسبوك","سناب شات","واتساب","تلغرام","ريديت","لينكدان","بنترست","ديسكورد","تويتش","سبوتيفاي","ابل ميوزك","ساوند كلاود","جوجل","بينغ","ويكيبيديا","خرائط جوجل"]},
+  {name:"شخصيات كرتونية",icon:"🦸",words:["سبونج بوب","توم","جيري","ميكي ماوس","باتمان","سوبرمان","سبايدرمان","غامبول","بن تن","سكوبي دو","دورا","كونان","ناروتو","غوكو","لوفي","بوكيمون","ماريو","سونيك","كابتن ماجد","كابتن رابح","سندباد","علاء الدين","باربي","هايدي","النمر الوردي"]},
+  {name:"اطعمة سريعة",icon:"🍔",words:["برجر","بيتزا","شاورما","فرايز","ناقتس","هوت دوق","تاكو","بوريتو","سب","راب","كرسبي","بروستد","فلافل","سمبوسة","كريب","وافل","دونات","كوكيز","ايس كريم","ميلك شيك","سلطة","كول سلو","بطاطس مقلية","تشيكن ستربس"]},
+  {name:"مناسبات واعياد",icon:"🎊",words:["رمضان","عيد الفطر","عيد الاضحى","يوم وطني","يوم التاسيس","راس السنة","مولد نبوي","اسراء ومعراج","نصف شعبان","يوم الام","يوم الاب","يوم المعلم","يوم الطفل","عيد ميلاد","حفل تخرج","زواج","خطوبة","عقيقة","استقبال مولود","سبوع"]},
+  {name:"بهارات وتوابل",icon:"🧂",words:["ملح","فلفل اسود","كمون","كركم","زعفران","قرفة","هيل","قرنفل","زنجبيل","بابريكا","كاري","فلفل احمر","ثوم بودرة","بصل بودرة","نعناع مجفف","اوريقانو","روزماري","تايم","سماق","بزار","لومي","محلب"]},
+  {name:"حلويات",icon:"🍰",words:["كنافة","بقلاوة","بسبوسة","كيك","تشيز كيك","كريم بروليه","تيراميسو","ايس كريم","شوكولاتة","مكرون","كوكيز","براونيز","بان كيك","وافل","دونات","كب كيك","موس","فلان","ام علي","لقيمات","معمول","كليجا","قطايف","مهلبية","رز بحليب"]},
+  {name:"اسماء اولاد",icon:"👦",words:["محمد","عبدالله","فهد","سلطان","خالد","عمر","احمد","سعود","تركي","نواف","راشد","بندر","فيصل","سلمان","عبدالعزيز","يزيد","مشاري","ناصر","ماجد","عبدالرحمن","حمد","ابراهيم","عادل","سعد","وليد","هاني","طلال","بدر","منصور","ريان"]},
+  {name:"اسماء بنات",icon:"👧",words:["نورة","سارة","مريم","فاطمة","عائشة","هند","لمى","جوري","ريم","لينا","دانة","شهد","وجدان","غادة","منيرة","العنود","اريج","رغد","مها","هيا","لطيفة","ابتسام","وفاء","سمية","رنا","ياسمين","ليان","تالا","جنى","سلمى"]},
+  {name:"صفات شخصية",icon:"🧠",words:["ذكي","شجاع","كريم","صادق","مبدع","طموح","صبور","متواضع","مرح","جاد","حنون","قوي","هادئ","نشيط","مخلص","متفائل","واثق","مسؤول","اجتماعي","محترم","ملتزم","فضولي","مغامر","حكيم","عنيد","خجول","كسول","عصبي","طيب","رومانسي"]},
+];
+
+const params = new URLSearchParams(location.search);
+let username = params.get('username') || '';
+const __auth = (function(){ var p = new URLSearchParams(location.search); return { key: p.get('key')||'', pw: p.get('pw')||'' }; })();
+const socket = io({ auth: __auth, transports:['websocket','polling'], reconnection:true });
+if (username) socket.emit('join', { username });
+
+document.getElementById('username-input').value = username;
+document.getElementById('username-input').onchange = (e) => {
+  username = e.target.value.replace('@','').trim();
+  history.replaceState(null,'',`?username=${username}`);
+  updateOverlayLink();
+  socket.emit('join', { username });
+};
+function updateOverlayLink() {
+  document.getElementById('overlay-link').textContent = location.origin + '/word-war-overlay.html?username=' + username;
+}
+updateOverlayLink();
+function copyLink() {
+  navigator.clipboard.writeText(document.getElementById('overlay-link').textContent);
+  document.getElementById('overlay-link').style.borderColor = '#1dba72';
+  setTimeout(() => { document.getElementById('overlay-link').style.borderColor = ''; }, 1000);
+}
+
+let usedCats = new Set(), autoMode = false, autoTimer = null, timerInt = null, endTime = 0;
+let registrationLocked = false;
+let currentCatIdx = -1;
+let usedWords = new Set();
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renderCatGrid() {
+  document.getElementById('cat-grid').innerHTML = CATEGORIES.map((c,i) => `
+    <div class="cat-card ${usedCats.has(i)?'used':''}" onclick="startRound(${i})">
+      <div class="cat-icon">${c.icon}</div>
+      <div class="cat-name">${esc(c.name)}</div>
+      <div class="cat-count">${c.words.length} كلمة</div>
+    </div>`).join('');
+}
+
+function showAnswers(catIdx) {
+  currentCatIdx = catIdx;
+  usedWords.clear();
+  renderAnswers();
+}
+
+function renderAnswers() {
+  const panel = document.getElementById('answers-panel');
+  if (currentCatIdx < 0) { panel.classList.remove('show'); return; }
+  const cat = CATEGORIES[currentCatIdx];
+  panel.classList.add('show');
+  document.getElementById('answers-cat-name').textContent = '📋 ' + cat.icon + ' ' + cat.name;
+  document.getElementById('answers-count').textContent = cat.words.length + ' كلمة — ' + usedWords.size + ' استُخدمت';
+  document.getElementById('answers-grid').innerHTML = cat.words.map(w => {
+    const isUsed = usedWords.has(w.toLowerCase().replace(/\s+/g,''));
+    return '<span class="answer-chip' + (isUsed ? ' used' : '') + '">' + esc(w) + '</span>';
+  }).join('');
+}
+
+function markWordUsed(word) {
+  usedWords.add(word.toLowerCase().replace(/\s+/g,''));
+  renderAnswers();
+}
+
+async function startRound(idx, resetTeams = false) {
+  const cat = CATEGORIES[idx];
+  usedCats.add(idx);
+  showAnswers(idx);
+  const duration = parseInt(document.getElementById('duration').value) || 60;
+  const redKeyword = document.getElementById('red-keyword').value.trim();
+  const blueKeyword = document.getElementById('blue-keyword').value.trim();
+  await fetch('/api/word-war/start', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ username, category: cat.name, validWords: cat.words.map(w=>w.toLowerCase().replace(/\s+/g,'')), duration, redKeyword, blueKeyword, resetTeams }),
+  });
+  if (resetTeams) {
+    registrationLocked = false;
+    updateLockBtn();
+    redPlayersList = []; bluePlayersList = [];
+    resetLiveBoard();
+  } else {
+    document.getElementById('live-red-words').innerHTML='';
+    document.getElementById('live-blue-words').innerHTML='';
+    document.getElementById('feed-box').innerHTML='<div class="empty">في انتظار الإجابات...</div>';
+    feedStarted = false;
+    redPlayersList.forEach(p => p.count = 0);
+    bluePlayersList.forEach(p => p.count = 0);
+    renderPlayersList('red');
+    renderPlayersList('blue');
+  }
+  startTimer(duration);
+  setActive(true);
+  renderCatGrid();
+}
+
+let registrationOpen = false;
+
+function toggleRegistration() {
+  registrationOpen = !registrationOpen;
+  const btn = document.getElementById('reg-btn');
+  const status = document.getElementById('reg-status');
+  const statusText = document.getElementById('reg-status-text');
+  const card = document.getElementById('reg-card');
+
+  if (registrationOpen) {
+    // Open registration
+    const redKw = document.getElementById('red-keyword').value.trim();
+    const blueKw = document.getElementById('blue-keyword').value.trim();
+    fetch('/api/word-war/open-registration', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username, redKeyword: redKw, blueKeyword: blueKw }),
+    });
+    btn.textContent = '🔒 إيقاف التسجيل';
+    btn.style.background = '#ef4444';
+    status.style.display = 'block';
+    statusText.textContent = '✅ التسجيل مفتوح — المشاهدين يكتبون "' + redKw + '" أو "' + blueKw + '"';
+    statusText.style.color = '#1dba72';
+    card.style.borderColor = 'rgba(29,186,114,.4)';
+  } else {
+    // Close registration
+    fetch('/api/word-war/lock', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username, locked: true }),
+    });
+    btn.textContent = '📝 فتح التسجيل';
+    btn.style.background = '#1dba72';
+    status.style.display = 'block';
+    statusText.textContent = '🔒 التسجيل مقفل — ' + redPlayersList.length + ' أحمر و ' + bluePlayersList.length + ' أزرق';
+    statusText.style.color = '#ef4444';
+    card.style.borderColor = 'rgba(239,68,68,.3)';
+  }
+}
+
+function toggleLock() { toggleRegistration(); }
+
+function updateLockBtn() {}
+
+async function clearTeams() {
+  if (!confirm('حذف جميع أعضاء الفرق؟')) return;
+  await fetch('/api/word-war/clear-teams', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ username }),
+  });
+  redPlayersList = []; bluePlayersList = [];
+  document.getElementById('red-players').innerHTML = '<div class="empty" style="padding:12px">لا يوجد لاعبين</div>';
+  document.getElementById('blue-players').innerHTML = '<div class="empty" style="padding:12px">لا يوجد لاعبين</div>';
+  document.getElementById('red-player-count').textContent = '0';
+  document.getElementById('blue-player-count').textContent = '0';
+  document.getElementById('red-count').textContent = '0 لاعب';
+  document.getElementById('blue-count').textContent = '0 لاعب';
+}
+
+async function addManualPlayer(team) {
+  const inputId = team === 'red' ? 'add-red-name' : 'add-blue-name';
+  const name = document.getElementById(inputId).value.trim();
+  if (!name) return;
+  document.getElementById(inputId).value = '';
+  await fetch('/api/word-war/add-player', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ username, team, playerName: name }),
+  });
+  updatePlayersList(team, name, 0);
+}
+
+async function nextCategory() {
+  let pool = CATEGORIES.map((c,i)=>i).filter(i=>!usedCats.has(i));
+  if (!pool.length) { usedCats.clear(); pool = CATEGORIES.map((c,i)=>i); }
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  await startRound(pick, false);
+}
+
+async function newRound() {
+  usedCats.clear();
+  redPlayersList = []; bluePlayersList = [];
+  registrationOpen = false;
+  registrationLocked = false;
+  currentCatIdx = -1;
+  usedWords.clear();
+  resetLiveBoard();
+  // Clear answers panel
+  document.getElementById('answers-panel').classList.remove('show');
+  // Reset registration UI
+  const btn = document.getElementById('reg-btn');
+  btn.textContent = '📝 فتح التسجيل';
+  btn.style.background = '#1dba72';
+  document.getElementById('reg-status').style.display = 'none';
+  document.getElementById('reg-card').style.borderColor = 'rgba(251,191,36,.3)';
+  document.getElementById('red-players').innerHTML = '<div class="empty" style="padding:12px">لا يوجد لاعبين</div>';
+  document.getElementById('blue-players').innerHTML = '<div class="empty" style="padding:12px">لا يوجد لاعبين</div>';
+  document.getElementById('red-player-count').textContent = '0';
+  document.getElementById('blue-player-count').textContent = '0';
+  // Clear teams on server
+  await fetch('/api/word-war/clear-teams', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ username }) });
+  renderCatGrid();
+  setActive(false);
+  stopTimer();
+}
+
+async function nextRound() { await nextCategory(); }
+
+async function stopGame() {
+  if (autoMode) toggleAuto();
+  await fetch('/api/word-war/stop', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ username }) });
+  setActive(false); stopTimer();
+}
+
+async function clearHistory() {
+  if (!confirm('مسح السجل؟')) return;
+  await fetch('/api/word-war/clear', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ username }) });
+  document.getElementById('history-list').innerHTML = '<div class="empty">لا يوجد جولات سابقة</div>';
+}
+
+function toggleAuto() {
+  autoMode = !autoMode;
+  const btn = document.getElementById('auto-btn');
+  if (autoMode) { btn.textContent='⏸ إيقاف';btn.classList.add('on');document.getElementById('status-badge').textContent='🟠 أوتوماتيك';document.getElementById('status-badge').classList.add('auto');nextRound(); }
+  else { btn.textContent='▶ أوتوماتيك';btn.classList.remove('on');document.getElementById('status-badge').classList.remove('auto');if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}setActive(false); }
+}
+
+function scheduleNextAuto() { if(!autoMode)return;const w=parseInt(document.getElementById('wait-time').value)||8;autoTimer=setTimeout(()=>{if(autoMode)nextRound();},w*1000); }
+
+function resetLiveBoard() {
+  document.getElementById('live-red').textContent='0';
+  document.getElementById('live-blue').textContent='0';
+  document.getElementById('live-red-words').innerHTML='';
+  document.getElementById('live-blue-words').innerHTML='';
+  document.getElementById('red-count').textContent='0 لاعب';
+  document.getElementById('blue-count').textContent='0 لاعب';
+  document.getElementById('red-player-count').textContent='0';
+  document.getElementById('blue-player-count').textContent='0';
+  document.getElementById('red-players').innerHTML='<div class="empty" style="padding:12px">لا يوجد لاعبين</div>';
+  document.getElementById('blue-players').innerHTML='<div class="empty" style="padding:12px">لا يوجد لاعبين</div>';
+  document.getElementById('feed-box').innerHTML='<div class="empty">في انتظار بدء الجولة...</div>';
+  feedStarted = false;
+}
+let feedStarted = false;
+let redPlayersList = [], bluePlayersList = [];
+
+function addFeedItem(type, team, name, word) {
+  if (!feedStarted) { document.getElementById('feed-box').innerHTML = ''; feedStarted = true; }
+  const box = document.getElementById('feed-box');
+  const div = document.createElement('div');
+  if (type === 'join') {
+    div.className = 'feed-item join';
+    div.innerHTML = '<span class="feed-team ' + team + '">' + (team==='red'?'🔴':'🔵') + '</span><span class="feed-name">' + esc(name) + '</span><span class="feed-word">انضم للفريق</span>';
+  } else {
+    div.className = 'feed-item ' + team;
+    div.innerHTML = '<span class="feed-team ' + team + '">' + (team==='red'?'🔴':'🔵') + '</span><span class="feed-name">' + esc(name) + '</span><span class="feed-word">' + esc(word) + '</span>';
+  }
+  box.prepend(div);
+  while (box.children.length > 50) box.removeChild(box.lastChild);
+}
+
+function updatePlayersList(team, name, wordCount) {
+  const list = team === 'red' ? redPlayersList : bluePlayersList;
+  const existing = list.find(p => p.name === name);
+  if (existing) { existing.count = wordCount; }
+  else { list.push({ name, count: wordCount || 0 }); }
+  renderPlayersList(team);
+}
+
+function renderPlayersList(team) {
+  const list = team === 'red' ? redPlayersList : bluePlayersList;
+  const el = document.getElementById(team + '-players');
+  const countEl = document.getElementById(team + '-player-count');
+  countEl.textContent = list.length;
+  document.getElementById(team + '-count').textContent = list.length + ' لاعب';
+  if (!list.length) { el.innerHTML = '<div class="empty" style="padding:12px">لا يوجد لاعبين</div>'; return; }
+  const sorted = [...list].sort((a,b) => b.count - a.count);
+  el.innerHTML = sorted.map(p => '<div class="player-row"><span class="name">' + esc(p.name) + '</span><span class="count">' + p.count + ' كلمة</span><button onclick="removePlayer(\'' + team + '\',\'' + esc(p.name.replace(/'/g,'')) + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="حذف">✕</button></div>').join('');
+}
+
+async function removePlayer(team, name) {
+  await fetch('/api/word-war/remove-player', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ username, team, playerName: name }),
+  });
+  const list = team === 'red' ? redPlayersList : bluePlayersList;
+  const idx = list.findIndex(p => p.name === name);
+  if (idx !== -1) list.splice(idx, 1);
+  renderPlayersList(team);
+}
+
+socket.on('word-war:word', ({ team, word, player, redScore, blueScore }) => {
+  document.getElementById('live-red').textContent = redScore;
+  document.getElementById('live-blue').textContent = blueScore;
+  const el = document.getElementById(team === 'red' ? 'live-red-words' : 'live-blue-words');
+  el.innerHTML = `<span class="live-word">${esc(word)}</span>` + el.innerHTML;
+  addFeedItem('word', team, player, word);
+  markWordUsed(word);
+  const list = team === 'red' ? redPlayersList : bluePlayersList;
+  const p = list.find(x => x.name === player);
+  if (p) { p.count++; renderPlayersList(team); }
+});
+
+socket.on('word-war:join', ({ team, player, redCount, blueCount }) => {
+  document.getElementById('red-count').textContent = redCount + ' لاعب';
+  document.getElementById('blue-count').textContent = blueCount + ' لاعب';
+  addFeedItem('join', team, player);
+  updatePlayersList(team, player, 0);
+});
+
+socket.on('word-war:end', (result) => {
+  stopTimer();
+  setActive(false);
+  fetch(`/api/word-war/${username}`).then(r=>r.json()).then(d => renderHistory(d.roundHistory || []));
+  if (autoMode) scheduleNextAuto();
+});
+
+function renderHistory(list) {
+  const el = document.getElementById('history-list');
+  if (!list.length) { el.innerHTML = '<div class="empty">لا يوجد جولات سابقة</div>'; return; }
+  el.innerHTML = list.reverse().map(r => {
+    const cls = r.winner==='red'?'red-win':r.winner==='blue'?'blue-win':'tie';
+    const icon = r.winner==='red'?'🔴':r.winner==='blue'?'🔵':'🤝';
+    return `<div class="history-item"><span>${icon}</span><span class="history-cat">${esc(r.category)}</span><span class="history-score ${cls}">${r.redScore} - ${r.blueScore}</span></div>`;
+  }).join('');
+}
+
+function startTimer(s){endTime=Date.now()+s*1000;document.getElementById('timer-display').style.display='block';if(timerInt)clearInterval(timerInt);updateTimer();timerInt=setInterval(updateTimer,200);}
+function stopTimer(){if(timerInt)clearInterval(timerInt);timerInt=null;}
+function updateTimer(){const r=Math.max(0,endTime-Date.now());const s=Math.ceil(r/1000);const el=document.getElementById('timer-display');el.textContent=s;el.classList.remove('warning','ended');if(s<=5)el.classList.add('warning');if(r<=0){el.classList.add('ended');clearInterval(timerInt);timerInt=null;}}
+function setActive(on){document.getElementById('status-badge').classList.toggle('active',on&&!autoMode);if(!autoMode)document.getElementById('status-badge').textContent=on?'🟢 نشط':'متوقف';}
+
+if(username){fetch(`/api/word-war/${username}`).then(r=>r.json()).then(d=>{renderHistory(d.roundHistory||[]);});}
+renderCatGrid();
+
+// ── Open overlay in new tab (BthLab) ───────────────────
+function openOverlayInNewTab(a) {
+  var el = document.getElementById('overlay-link');
+  var url = (el && el.textContent || '').trim();
+  if (!url || url.indexOf('http') !== 0) {
+    alert('اتصل بالبث أولاً للحصول على رابط الأوفرلاي');
+    return false;
+  }
+  a.href = url;
+  return true;
+}
+// حدّث href تلقائياً إذا تغيّر النص (مرّة كل ثانية يكفي ولا يحمّل شي)
+setInterval(function() {
+  var el = document.getElementById('overlay-link');
+  var btn = document.getElementById('open-overlay-link');
+  if (!el || !btn) return;
+  var url = (el.textContent || '').trim();
+  if (url.indexOf('http') === 0 && btn.getAttribute('href') !== url) btn.setAttribute('href', url);
+}, 1000);
+
+</script>
+</body>
+</html>

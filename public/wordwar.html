@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ حرب الكلمات — BthLab</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root { --bg:#0a0a0f; --surface:#111118; --surface2:#1a1a24; --border:rgba(255,255,255,.08); --accent:#ff0050; --accent2:#25f4ee; --text:#f0f0f5; --muted:#666; --green:#1dba72; --amber:#f59e0b; --red:#ef4444; --blue:#3b82f6; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Tajawal',sans-serif; min-height:100vh; }
+header { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; justify-content:space-between; }
+.logo { font-size:18px; font-weight:700; } .logo span { color:var(--accent); }
+.container { max-width:700px; margin:0 auto; padding:20px 16px; display:flex; flex-direction:column; gap:14px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; }
+.card-title { font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+.how-box { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:14px; font-size:13px; color:rgba(255,255,255,.6); line-height:2; border-right:3px solid var(--accent2); }
+.how-box strong { color:var(--accent2); }
+.btn { border:none; font-family:inherit; font-size:14px; font-weight:700; padding:12px; border-radius:10px; cursor:pointer; transition:all .15s; width:100%; }
+.btn:hover { opacity:.85; }
+.btn-stop { background:var(--accent); color:#fff; }
+.btn-lock { background:var(--surface2); border:1px solid var(--border); color:var(--muted); font-size:13px; padding:10px; }
+.btns-row { display:flex; gap:8px; }
+.btns-row .btn { flex:1; }
+input[type=text],input[type=number]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:14px;padding:10px 14px;border-radius:8px;outline:none}
+input:focus{border-color:var(--accent2)}
+label{font-size:13px;color:#aaa;display:block;margin-bottom:6px}
+.field{margin-bottom:12px}
+.keywords-row{display:flex;gap:10px;margin-bottom:12px}
+.keyword-box{flex:1;padding:10px;border-radius:10px;text-align:center}
+.keyword-box.red{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2)}
+.keyword-box.blue{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2)}
+.keyword-box.red label{color:var(--red)}
+.keyword-box.blue label{color:var(--blue)}
+.keyword-box input{text-align:center;font-weight:700;font-size:16px}
+.cats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;max-height:400px;overflow-y:auto;padding:4px}
+.cat-btn{padding:12px 8px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;text-align:center;transition:all .15s}
+.cat-btn:hover{border-color:rgba(255,255,255,.2);transform:translateY(-1px)}
+.cat-btn.used{opacity:.3;pointer-events:none}
+.cat-icon{font-size:24px;margin-bottom:4px}
+.cat-name{font-size:12px;font-weight:700;color:var(--text)}
+.cat-count{font-size:10px;color:var(--muted)}
+.scoreboard{display:flex;gap:12px;margin:14px 0}
+.team-card{flex:1;border-radius:14px;padding:16px;text-align:center}
+.team-red{background:rgba(239,68,68,.1);border:2px solid rgba(239,68,68,.3)}
+.team-blue{background:rgba(59,130,246,.1);border:2px solid rgba(59,130,246,.3)}
+.team-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.team-red .team-name{color:var(--red)}
+.team-blue .team-name{color:var(--blue)}
+.team-score{font-size:36px;font-weight:900}
+.team-red .team-score{color:var(--red)}
+.team-blue .team-score{color:var(--blue)}
+.team-members{font-size:11px;color:var(--muted);margin-top:4px}
+.team-words{font-size:11px;color:rgba(255,255,255,.4);margin-top:6px;word-break:break-word;max-height:80px;overflow-y:auto}
+/* Answers section */
+.answers-card{margin-top:14px}
+.answers-title{font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.answers-title .count{font-size:11px;color:var(--accent2)}
+.answers-columns{display:flex;gap:12px}
+.answers-col{flex:1;border-radius:12px;padding:12px}
+.answers-col.red{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15)}
+.answers-col.blue{background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15)}
+.answers-col-title{font-size:12px;font-weight:700;margin-bottom:8px;text-align:center}
+.answers-col.red .answers-col-title{color:var(--red)}
+.answers-col.blue .answers-col-title{color:var(--blue)}
+.answers-list{list-style:none;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.answers-list li{font-size:12px;padding:5px 10px;border-radius:6px;display:flex;justify-content:space-between;align-items:center}
+.answers-col.red .answers-list li{background:rgba(239,68,68,.08);color:rgba(255,255,255,.7)}
+.answers-col.blue .answers-list li{background:rgba(59,130,246,.08);color:rgba(255,255,255,.7)}
+.answers-list .player-name{font-size:10px;color:var(--muted)}
+.no-answers{text-align:center;font-size:11px;color:var(--muted);padding:16px}
+.timer-display{text-align:center;font-size:32px;font-weight:900;color:var(--accent2);padding:8px}
+.category-display{text-align:center;font-size:18px;font-weight:700;color:var(--amber);padding:8px;background:rgba(245,158,11,.08);border-radius:10px;margin-bottom:8px}
+.overlay-link{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--accent2);word-break:break-all;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">⚔️ حرب الكلمات <span>Control</span></div>
+  <div style="font-size:13px;color:var(--muted)" id="status-text">غير متصل</div>
+</header>
+<div class="container">
+  <div class="how-box">
+    <strong>📖 كيف تشتغل الفعالية:</strong><br>
+    1. حدد <strong>كلمة دخول</strong> لكل فريق — المشاهد يكتبها في الشات عشان ينضم<br>
+    2. اختر <strong>فئة</strong> (مثل فواكه أو حيوانات) واضغط عليها عشان تبدأ<br>
+    3. اللاعبين يكتبون كلمات تنتمي للفئة — كل كلمة صحيحة غير مكررة = <strong>نقطة</strong><br>
+    4. ينتهي الوقت → الفريق اللي عنده نقاط أكثر يفوز! ⚔️<br>
+    <strong>تلميح:</strong> اضغط "🔒 إيقاف التسجيل" بعد ما ينضمون عشان ما أحد يدخل متأخر
+  </div>
+
+  <div class="card">
+    <div class="card-title">كلمات الدخول للفرق</div>
+    <div class="keywords-row">
+      <div class="keyword-box red"><label>🔴 فريق أحمر</label><input type="text" id="red-keyword" value="أحمر"></div>
+      <div class="keyword-box blue"><label>🔵 فريق أزرق</label><input type="text" id="blue-keyword" value="أزرق"></div>
+    </div>
+    <div class="field"><label>⏱ مدة الجولة (ثانية)</label><input type="number" id="duration" value="60" min="15" max="300"></div>
+    <div class="btns-row">
+      <button class="btn btn-lock" id="lock-btn" onclick="toggleLock()">🔒 إيقاف التسجيل</button>
+      <button class="btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--red)" onclick="resetTeams()">🗑 مسح الفرق</button>
+    </div>
+  </div>
+
+  <div class="scoreboard">
+    <div class="team-card team-red">
+      <div class="team-name">🔴 أحمر</div>
+      <div class="team-score" id="red-score">0</div>
+      <div class="team-members" id="red-members">0 لاعب</div>
+      <div class="team-words" id="red-words"></div>
+    </div>
+    <div class="team-card team-blue">
+      <div class="team-name">🔵 أزرق</div>
+      <div class="team-score" id="blue-score">0</div>
+      <div class="team-members" id="blue-members">0 لاعب</div>
+      <div class="team-words" id="blue-words"></div>
+    </div>
+  </div>
+
+  <div class="card answers-card" id="answers-card" style="display:none">
+    <div class="answers-title">📝 الإجابات <span class="count" id="answers-count">0 كلمة</span></div>
+    <div class="answers-columns">
+      <div class="answers-col red">
+        <div class="answers-col-title">🔴 أحمر</div>
+        <ul class="answers-list" id="red-answers"><li class="no-answers">لا توجد إجابات بعد</li></ul>
+      </div>
+      <div class="answers-col blue">
+        <div class="answers-col-title">🔵 أزرق</div>
+        <ul class="answers-list" id="blue-answers"><li class="no-answers">لا توجد إجابات بعد</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="live-card" style="display:none">
+    <div class="category-display" id="category-display">—</div>
+    <div class="timer-display" id="timer-display">01:00</div>
+    <button class="btn btn-stop" onclick="stopWar()">⏹ أنهِ الجولة</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">اختر الفئة</div>
+    <div class="cats-grid" id="cats-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔗 رابط الأوفرلي</div>
+    <div class="overlay-link" id="overlay-link" onclick="copyLink()">اتصل بالبث أولاً</div>
+  </div>
+</div>
+<script>
+const params=new URLSearchParams(location.search);const username=params.get('username')||'';const socket=io();
+let registrationLocked=false,timerInt=null,endTime=0,usedCats=new Set();
+let redWordsList=[],blueWordsList=[];
+
+const CATEGORIES=[
+{icon:'🍎',name:'فواكه',words:['تفاح','موز','برتقال','عنب','مانجو','فراولة','بطيخ','رمان','كيوي','أناناس','خوخ','مشمش','تين','تمر','كرز','توت','ليمون','جوافة','بابايا','أفوكادو','كمثرى','يوسفي']},
+{icon:'🥕',name:'خضروات',words:['طماطم','خيار','بصل','ثوم','جزر','بطاطس','فلفل','باذنجان','كوسة','بروكلي','خس','ملفوف','سبانخ','بقدونس','نعناع','جرجير','فجل','شمندر','ذرة','بازلاء','فاصوليا','قرع']},
+{icon:'🐱',name:'حيوانات',words:['قطة','كلب','أسد','نمر','فيل','زرافة','غزال','حصان','بقرة','خروف','أرنب','دب','ثعلب','ذئب','قرد','حمار','جمل','فهد','تمساح','سلحفاة','صقر','نسر','حوت','دلفين']},
+{icon:'🏳️',name:'دول عربية',words:['السعودية','مصر','الإمارات','الكويت','قطر','البحرين','عمان','الأردن','لبنان','سوريا','العراق','فلسطين','اليمن','ليبيا','تونس','الجزائر','المغرب','السودان','موريتانيا','الصومال','جيبوتي']},
+{icon:'🌍',name:'دول أجنبية',words:['أمريكا','بريطانيا','فرنسا','ألمانيا','إيطاليا','إسبانيا','البرازيل','اليابان','الصين','كوريا','الهند','روسيا','كندا','أستراليا','المكسيك','تركيا','إيران','باكستان','إندونيسيا','تايلاند','ماليزيا','سويسرا']},
+{icon:'🏙️',name:'مدن سعودية',words:['الرياض','جدة','مكة','المدينة','الدمام','الخبر','الظهران','أبها','الطائف','تبوك','حائل','القصيم','بريدة','عنيزة','نجران','جازان','ينبع','الجبيل','الأحساء','القطيف','خميس مشيط','الباحة']},
+{icon:'⚽',name:'رياضات',words:['كرة قدم','كرة سلة','كرة طائرة','تنس','سباحة','ملاكمة','كاراتيه','تايكوندو','جودو','مصارعة','رماية','فروسية','دراجات','تزلج','جمباز','رفع أثقال','غوص','تجديف','بولينج']},
+{icon:'🎨',name:'ألوان',words:['أحمر','أزرق','أخضر','أصفر','برتقالي','بنفسجي','وردي','أسود','أبيض','رمادي','بني','ذهبي','فضي','نيلي','فيروزي','زهري','كحلي','بيج','عنابي','زيتي']},
+{icon:'🍔',name:'أكلات',words:['كبسة','مندي','برياني','مضغوط','جريش','هريس','مطبق','سمبوسة','فلافل','شاورما','برجر','بيتزا','باستا','سوشي','منسف','كشري','محشي','ملوخية','فتة','تبولة','كنافة','بسبوسة']},
+{icon:'👔',name:'مهن',words:['طبيب','مهندس','معلم','محامي','صيدلي','ممرض','طيار','شرطي','جندي','إطفائي','محاسب','مصمم','مبرمج','صحفي','مصور','خباز','حلاق','نجار','كهربائي','سباك','بائع','مزارع']},
+{icon:'🏫',name:'مواد دراسية',words:['رياضيات','عربي','إنجليزي','علوم','فيزياء','كيمياء','أحياء','تاريخ','جغرافيا','تربية إسلامية','حاسب','رسم','رياضة','فلسفة','اقتصاد','أدب','نحو','بلاغة']},
+{icon:'🚗',name:'سيارات',words:['تويوتا','هوندا','نيسان','مرسيدس','بي ام دبليو','أودي','فورد','شيفروليه','هيونداي','كيا','مازدا','لكزس','بورشه','فيراري','لامبورغيني','رولز رويس','جيب','لاند روفر','فولكسفاجن']},
+{icon:'📱',name:'تطبيقات',words:['واتساب','تيك توك','سناب شات','إنستقرام','تويتر','يوتيوب','تليجرام','فيسبوك','نتفلكس','سبوتيفاي','أوبر','كريم','هنقرستيشن','جاهز','مرسول','شي إن','أمازون','نون','توكلنا','أبشر']},
+{icon:'⚽',name:'أندية سعودية',words:['الهلال','النصر','الأهلي','الاتحاد','الشباب','الفيصلي','الرائد','التعاون','الفتح','الباطن','أبها','الحزم','الطائي','ضمك','الخليج','الاتفاق','الوحدة']},
+{icon:'🎵',name:'آلات موسيقية',words:['عود','قيتار','بيانو','كمان','طبل','دف','ناي','ساكسفون','هارب','أكورديون','بانجو','تشيلو','فلوت','أورغ','درامز','ربابة','مزمار']},
+{icon:'💎',name:'أحجار كريمة',words:['ألماس','ياقوت','زمرد','لؤلؤ','عقيق','فيروز','توباز','جمشت','أوبال','سفير','مرجان','كهرمان','زبرجد']},
+{icon:'🌸',name:'أزهار',words:['ورد','ياسمين','توليب','لافندر','بنفسج','نرجس','قرنفل','عباد الشمس','أوركيد','زنبق','كاميليا','داليا','لوتس','فل','جاردينيا']},
+{icon:'🌊',name:'بحار ومحيطات',words:['المحيط الهادي','المحيط الأطلسي','المحيط الهندي','البحر الأحمر','البحر المتوسط','بحر العرب','الخليج العربي','بحر الصين','البحر الكاريبي','البحر الأسود','بحر قزوين','البحر الميت']},
+];
+
+if(username){socket.emit('join',{username});document.getElementById('status-text').textContent='@'+username;document.getElementById('overlay-link').textContent=location.origin+'/wordwar-overlay.html?username='+username;}
+
+function renderCatGrid(){document.getElementById('cats-grid').innerHTML=CATEGORIES.map((c,i)=>`<div class="cat-btn ${usedCats.has(i)?'used':''}" onclick="startRound(${i})"><div class="cat-icon">${c.icon}</div><div class="cat-name">${c.name}</div><div class="cat-count">${c.words.length} كلمة</div></div>`).join('');}
+renderCatGrid();
+
+async function startRound(idx){const cat=CATEGORIES[idx];usedCats.add(idx);const duration=parseInt(document.getElementById('duration').value)||60;const rk=document.getElementById('red-keyword').value.trim()||'أحمر';const bk=document.getElementById('blue-keyword').value.trim()||'أزرق';await fetch('/api/wordwar/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,category:cat.name,validWords:cat.words.map(w=>w.toLowerCase().replace(/\s+/g,'')),duration,redKeyword:rk,blueKeyword:bk})});document.getElementById('live-card').style.display='block';document.getElementById('category-display').textContent=cat.icon+' '+cat.name;endTime=Date.now()+duration*1000;startTimer();renderCatGrid();document.getElementById('red-words').textContent='';document.getElementById('blue-words').textContent='';redWordsList=[];blueWordsList=[];renderAnswers();}
+
+async function stopWar(){await fetch('/api/wordwar/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username})});if(timerInt)clearInterval(timerInt);document.getElementById('live-card').style.display='none';}
+
+function startTimer(){if(timerInt)clearInterval(timerInt);updateTimer();timerInt=setInterval(updateTimer,200);}
+function updateTimer(){const remain=Math.max(0,endTime-Date.now());const sec=Math.ceil(remain/1000);document.getElementById('timer-display').textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');if(remain<=0&&timerInt){clearInterval(timerInt);document.getElementById('live-card').style.display='none';}}
+
+function toggleLock(){registrationLocked=!registrationLocked;fetch('/api/wordwar/lock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,locked:registrationLocked})});updateLockBtn();}
+function updateLockBtn(){const btn=document.getElementById('lock-btn');if(registrationLocked){btn.textContent='🔓 التسجيل مقفل';btn.style.background='rgba(239,68,68,.15)';btn.style.borderColor='rgba(239,68,68,.4)';btn.style.color='#ef4444';}else{btn.textContent='🔒 إيقاف التسجيل';btn.style.background='var(--surface2)';btn.style.borderColor='var(--border)';btn.style.color='var(--muted)';}}
+
+async function resetTeams(){if(!confirm('متأكد تبي تمسح كل الفرق؟'))return;await fetch('/api/wordwar/reset-teams',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username})});document.getElementById('red-score').textContent='0';document.getElementById('blue-score').textContent='0';document.getElementById('red-members').textContent='0 لاعب';document.getElementById('blue-members').textContent='0 لاعب';document.getElementById('red-words').textContent='';document.getElementById('blue-words').textContent='';}
+
+socket.on('wordwar:join',d=>{document.getElementById('red-members').textContent=d.redCount+' لاعب';document.getElementById('blue-members').textContent=d.blueCount+' لاعب';});
+socket.on('wordwar:word',d=>{document.getElementById('red-score').textContent=d.redScore;document.getElementById('blue-score').textContent=d.blueScore;document.getElementById('red-words').textContent=d.redWords.join('، ');document.getElementById('blue-words').textContent=d.blueWords.join('، ');
+  // Add to answers
+  if(d.team==='red') redWordsList.push({word:d.word,player:d.player});
+  else blueWordsList.push({word:d.word,player:d.player});
+  renderAnswers();
+});
+socket.on('wordwar:update',d=>{document.getElementById('red-score').textContent=d.redScore;document.getElementById('blue-score').textContent=d.blueScore;document.getElementById('red-members').textContent=d.redCount+' لاعب';document.getElementById('blue-members').textContent=d.blueCount+' لاعب';});
+socket.on('wordwar:end',d=>{if(timerInt)clearInterval(timerInt);document.getElementById('live-card').style.display='none';const w=d.winner==='red'?'🔴 الأحمر':d.winner==='blue'?'🔵 الأزرق':'🤝 تعادل';alert('انتهت الجولة!\n'+w+' فاز!\n\n🔴 '+d.redScore+' نقطة\n🔵 '+d.blueScore+' نقطة');document.getElementById('red-words').textContent=d.redWords.join('، ');document.getElementById('blue-words').textContent=d.blueWords.join('، ');});
+socket.on('wordwar:lock',d=>{registrationLocked=d.locked;updateLockBtn();});
+
+function copyLink(){navigator.clipboard.writeText(document.getElementById('overlay-link').textContent);document.getElementById('overlay-link').style.color='#1dba72';setTimeout(()=>document.getElementById('overlay-link').style.color='',1500);}
+
+function renderAnswers(){
+  document.getElementById('answers-card').style.display='block';
+  const total=redWordsList.length+blueWordsList.length;
+  document.getElementById('answers-count').textContent=total+' كلمة';
+  const rList=document.getElementById('red-answers');
+  const bList=document.getElementById('blue-answers');
+  if(redWordsList.length===0) rList.innerHTML='<li class="no-answers">لا توجد إجابات بعد</li>';
+  else rList.innerHTML=redWordsList.map((w,i)=>`<li><span>${i+1}. ${w.word}</span><span class="player-name">${w.player}</span></li>`).join('');
+  if(blueWordsList.length===0) bList.innerHTML='<li class="no-answers">لا توجد إجابات بعد</li>';
+  else bList.innerHTML=blueWordsList.map((w,i)=>`<li><span>${i+1}. ${w.word}</span><span class="player-name">${w.player}</span></li>`).join('');
+}
+
+if(username)fetch(`/api/wordwar/${username}`).then(r=>r.json()).then(d=>{document.getElementById('red-score').textContent=d.redScore;document.getElementById('blue-score').textContent=d.blueScore;document.getElementById('red-members').textContent=d.redCount+' لاعب';document.getElementById('blue-members').textContent=d.blueCount+' لاعب';if(d.active){document.getElementById('live-card').style.display='block';document.getElementById('category-display').textContent=d.category;endTime=d.endTime;startTimer();}registrationLocked=d.registrationLocked;updateLockBtn();});
+</script>
+</body>
+</html>

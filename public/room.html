@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>غرفة تفاعلية — BthLab</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #0a0a12;
+    --surface: #12121e;
+    --surface2: #1a1a2e;
+    --border: #1e1e30;
+    --accent: #7c6bff;
+    --accent2: #ff6b9d;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --red: #ef4444;
+    --blue: #3b82f6;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Tajawal', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .room-badge {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    font-weight: 900;
+    font-size: 1.1rem;
+    padding: 6px 14px;
+    border-radius: 8px;
+    letter-spacing: 3px;
+  }
+  .host-badge {
+    background: rgba(124,107,255,0.15);
+    border: 1px solid rgba(124,107,255,0.3);
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .viewer-count {
+    color: var(--muted);
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .online-dot {
+    width: 8px; height: 8px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .btn-share {
+    background: rgba(124,107,255,0.15);
+    border: 1px solid rgba(124,107,255,0.3);
+    color: var(--accent);
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-share:hover { background: rgba(124,107,255,0.25); }
+
+  /* LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    flex: 1;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+  }
+  @media (max-width: 700px) {
+    .main { grid-template-columns: 1fr; height: auto; overflow: visible; }
+    .sidebar { border-left: none; border-top: 1px solid var(--border); height: 400px; }
+  }
+
+  /* CONTENT AREA */
+  .content {
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* SIDEBAR = CHAT */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+  }
+  .sidebar-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scroll-behavior: smooth;
+  }
+  .chat-msg {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  .chat-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 900; color: white;
+    flex-shrink: 0;
+  }
+  .chat-bubble { flex: 1; }
+  .chat-name {
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .chat-name.host-name { color: var(--accent2); }
+  .chat-text {
+    font-size: 0.9rem;
+    color: var(--text);
+    word-break: break-word;
+    line-height: 1.4;
+  }
+  .activity-msg {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding: 2px 0;
+  }
+  .chat-input-area {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+    text-align: right;
+  }
+  .chat-input:focus { border-color: var(--accent); }
+  .chat-send {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: white;
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .chat-send:hover { opacity: 0.85; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 0.9rem;
+    font-weight: 900;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* HOST CONTROLS */
+  .host-controls { display: none; }
+  .host-controls.show { display: block; }
+
+  .tabs-mini {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .tab-mini {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-mini.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent;
+    color: white;
+  }
+
+  .ctrl-panel { display: none; }
+  .ctrl-panel.active { display: block; }
+
+  input.ctrl, textarea.ctrl {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 8px;
+    text-align: right;
+  }
+  input.ctrl:focus, textarea.ctrl:focus { border-color: var(--accent); }
+  textarea.ctrl { resize: vertical; min-height: 60px; }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .btn-sm {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
+  .btn-danger { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+  .btn-success { background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.3); color: var(--success); }
+  .btn-warn { background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.3); color: var(--warning); }
+
+  /* ACTIVE ACTIVITY DISPLAY */
+  .activity-display { display: none; }
+  .activity-display.show { display: block; }
+
+  /* Poll display */
+  .poll-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+  }
+  .poll-question { font-size: 1.1rem; font-weight: 900; margin-bottom: 16px; }
+  .poll-options { display: flex; flex-direction: column; gap: 10px; }
+  .poll-option {
+    position: relative;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+  }
+  .poll-option:hover { border-color: var(--accent); }
+  .poll-option.voted { border-color: var(--accent); }
+  .poll-option .progress-bar {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    background: rgba(124,107,255,0.12);
+    transition: width 0.4s ease;
+    border-radius: 8px;
+  }
+  .poll-option-text { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; }
+  .poll-pct { font-size: 0.85rem; color: var(--accent); font-weight: 700; }
+  .poll-timer { text-align: center; color: var(--warning); font-size: 0.85rem; margin-top: 12px; font-weight: 700; }
+
+  /* Wheel display */
+  .wheel-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .wheel-canvas-wrap { position: relative; }
+  canvas#wheelCanvas { border-radius: 50%; }
+  .wheel-pointer {
+    position: absolute;
+    top: 50%; right: -12px;
+    transform: translateY(-50%);
+    width: 0; height: 0;
+    border-top: 14px solid transparent;
+    border-bottom: 14px solid transparent;
+    border-right: 22px solid var(--accent2);
+    filter: drop-shadow(0 0 6px rgba(255,107,157,0.6));
+  }
+  .wheel-entries-count {
+    font-size: 0.9rem;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .wheel-winner-banner {
+    display: none;
+    background: linear-gradient(135deg, rgba(124,107,255,0.2), rgba(255,107,157,0.2));
+    border: 1.5px solid rgba(124,107,255,0.4);
+    border-radius: 14px;
+    padding: 16px 24px;
+    text-align: center;
+    animation: fadeIn 0.4s ease;
+  }
+  .wheel-winner-banner.show { display: block; }
+  .wheel-winner-name { font-size: 1.4rem; font-weight: 900; color: var(--accent); }
+
+  /* Quiz display */
+  .quiz-choices { display: flex; flex-direction: column; gap: 10px; }
+  .quiz-choice {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .quiz-choice:hover { border-color: var(--accent); }
+  .quiz-choice.correct { border-color: var(--success); background: rgba(74,222,128,0.1); }
+  .quiz-choice.wrong { border-color: var(--danger); background: rgba(248,113,113,0.1); }
+  .quiz-choice.answered { cursor: default; }
+  .choice-num {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: rgba(124,107,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 0.85rem; color: var(--accent);
+    flex-shrink: 0;
+  }
+  .quiz-stats { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 10px; }
+  .quiz-winner-banner {
+    display: none;
+    text-align: center;
+    padding: 14px;
+    background: rgba(74,222,128,0.1);
+    border: 1px solid rgba(74,222,128,0.3);
+    border-radius: 12px;
+    margin-top: 12px;
+  }
+  .quiz-winner-banner.show { display: block; }
+
+  /* Viewers list */
+  .viewers-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .viewer-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  /* Closed overlay */
+  .room-closed {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,18,0.95);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+  .room-closed.show { display: flex; }
+  .room-closed h2 { font-size: 1.5rem; font-weight: 900; }
+  .room-closed p { color: var(--muted); }
+
+  /* Join screen */
+  #join-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #join-screen.hidden { display: none; }
+  .join-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 30px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+  .join-card h2 { font-size: 1.3rem; font-weight: 900; margin-bottom: 6px; }
+  .join-card .host-info { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; }
+  .join-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 1rem;
+    outline: none;
+    text-align: center;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+  }
+  .join-input:focus { border-color: var(--accent); }
+  .join-btn {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .join-btn:hover { opacity: 0.9; }
+  .join-err { color: var(--danger); font-size: 0.85rem; margin-top: 10px; }
+
+  .label-sm { font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; display: block; }
+</style>
+</head>
+<body>
+
+<!-- Join Screen (for viewers) -->
+<div id="join-screen">
+  <div class="join-card">
+    <h2>🎮 دخول الغرفة</h2>
+    <p class="host-info" id="join-host-info">جاري التحقق من الغرفة...</p>
+    <span class="label-sm">اسمك</span>
+    <input id="join-name-input" class="join-input" type="text" placeholder="اكتب اسمك" maxlength="30" autofocus>
+    <button class="join-btn" onclick="joinAsViewer()">▶ دخول</button>
+    <div class="join-err" id="join-screen-err"></div>
+  </div>
+</div>
+
+<!-- Room Closed Overlay -->
+<div class="room-closed" id="room-closed">
+  <div style="font-size:3rem">🔒</div>
+  <h2>انتهت الغرفة</h2>
+  <p>أغلق المضيف الغرفة</p>
+  <button onclick="location.href='/rooms.html'" class="join-btn" style="width:200px;margin-top:10px">العودة للرئيسية</button>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="room-badge" id="header-code">------</div>
+    <div id="host-badge-wrap"></div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <div class="viewer-count"><div class="online-dot"></div><span id="viewer-count-display">0 مشاهد</span></div>
+    <button class="btn-share" onclick="shareRoom()">🔗 مشاركة</button>
+    <button class="btn-share" id="btn-close-room" onclick="closeRoom()" style="display:none;color:var(--danger)">✕ إغلاق</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- HOST CONTROLS -->
+    <div class="card host-controls" id="host-controls">
+      <div class="card-title">🎛️ لوحة التحكم</div>
+      <div class="tabs-mini" style="flex-wrap:wrap">
+        <button class="tab-mini active" onclick="switchCtrl('poll')">📊 تصويت</button>
+        <button class="tab-mini" onclick="switchCtrl('wheel')">🎡 عجلة</button>
+        <button class="tab-mini" onclick="switchCtrl('quiz')">❓ سؤال</button>
+        <button class="tab-mini" onclick="switchCtrl('guess')">💡 خمّن</button>
+        <button class="tab-mini" onclick="switchCtrl('password')">🔐 كلمة السر</button>
+        <button class="tab-mini" onclick="switchCtrl('wordwar')">⚔️ حرب الكلمات</button>
+        <button class="tab-mini" onclick="switchCtrl('knockout')">🏆 خروج</button>
+        <button class="tab-mini" onclick="switchCtrl('viewers')">👥 مشاهدون</button>
+      </div>
+
+      <!-- Poll ctrl -->
+      <div class="ctrl-panel active" id="ctrl-poll">
+        <input class="ctrl" id="poll-q" placeholder="السؤال..." maxlength="100">
+        <input class="ctrl" id="poll-o1" placeholder="الخيار 1">
+        <input class="ctrl" id="poll-o2" placeholder="الخيار 2">
+        <input class="ctrl" id="poll-o3" placeholder="الخيار 3 (اختياري)">
+        <input class="ctrl" id="poll-o4" placeholder="الخيار 4 (اختياري)">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <span class="label-sm" style="margin:0">المدة (ثانية):</span>
+          <input class="ctrl" id="poll-timer" type="number" value="60" min="10" max="300" style="width:80px;margin:0">
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm btn-primary" onclick="startPoll()">▶ بدء التصويت</button>
+          <button class="btn-sm btn-danger" onclick="stopPoll()">◼ إيقاف</button>
+        </div>
+      </div>
+
+      <!-- Wheel ctrl -->
+      <div class="ctrl-panel" id="ctrl-wheel">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <span class="label-sm" style="margin:0">الكلمة المفتاحية:</span>
+          <input class="ctrl" id="wheel-keyword" value="اشتراك" style="margin:0;flex:1">
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm btn-success" onclick="openWheel()">✅ فتح التسجيل</button>
+          <button class="btn-sm btn-warn" onclick="closeWheel()">🔒 إغلاق التسجيل</button>
+          <button class="btn-sm btn-primary" onclick="spinWheel()">🎡 دوير</button>
+          <button class="btn-sm btn-danger" onclick="clearWheel()">🗑️ مسح</button>
+        </div>
+        <div id="wheel-count-ctrl" style="margin-top:10px;color:var(--muted);font-size:0.85rem">0 مشترك</div>
+      </div>
+
+      <!-- Quiz ctrl -->
+      <div class="ctrl-panel" id="ctrl-quiz">
+        <input class="ctrl" id="quiz-q" placeholder="السؤال..." maxlength="150">
+        <input class="ctrl" id="quiz-c1" placeholder="الخيار 1">
+        <input class="ctrl" id="quiz-c2" placeholder="الخيار 2">
+        <input class="ctrl" id="quiz-c3" placeholder="الخيار 3 (اختياري)">
+        <input class="ctrl" id="quiz-c4" placeholder="الخيار 4 (اختياري)">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+          <span class="label-sm" style="margin:0">الإجابة الصحيحة:</span>
+          <select id="quiz-correct" style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-family:'Tajawal',sans-serif;outline:none">
+            <option value="0">1</option><option value="1">2</option><option value="2">3</option><option value="3">4</option>
+          </select>
+          <span class="label-sm" style="margin:0">المدة:</span>
+          <input class="ctrl" id="quiz-timer" type="number" value="30" min="10" max="120" style="width:70px;margin:0">
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm btn-primary" onclick="startQuiz()">▶ بدء السؤال</button>
+          <button class="btn-sm btn-danger" onclick="stopQuiz()">◼ إيقاف</button>
+        </div>
+      </div>
+
+      <!-- Viewers ctrl -->
+      <div class="ctrl-panel" id="ctrl-viewers">
+        <div id="viewers-list-host" class="viewers-chips"></div>
+        <div id="no-viewers-msg" style="color:var(--muted);font-size:0.9rem;margin-top:8px">لا يوجد مشاهدون بعد</div>
+      </div>
+
+      <!-- Guess ctrl -->
+      <div class="ctrl-panel" id="ctrl-guess">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input class="ctrl" id="guess-word" placeholder="الكلمة السرية..." style="margin:0;flex:1">
+          <input class="ctrl" id="guess-hint" placeholder="تلميح..." style="margin:0;flex:1">
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm btn-primary" onclick="startGuess()">▶ بدء</button>
+          <button class="btn-sm btn-warn" onclick="socket.emit('room:guess-reveal',{code:ROOM_CODE})">👁 كشف</button>
+          <button class="btn-sm btn-success" onclick="socket.emit('room:guess-next',{code:ROOM_CODE})">⏭ التالي</button>
+          <button class="btn-sm btn-danger" onclick="socket.emit('room:guess-stop',{code:ROOM_CODE})">◼ إيقاف</button>
+        </div>
+        <div id="guess-winners-ctrl" style="margin-top:10px;color:var(--muted);font-size:0.85rem">الفائزون: —</div>
+      </div>
+
+      <!-- Knockout ctrl -->
+      <div class="ctrl-panel" id="ctrl-knockout">
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+          <input class="ctrl" id="ko-keyword" value="بطولة" placeholder="كلمة التسجيل" style="margin:0;flex:1">
+          <input class="ctrl" id="ko-max" type="number" value="16" min="4" max="64" style="margin:0;width:70px">
+          <input class="ctrl" id="ko-time" type="number" value="15" min="5" max="60" placeholder="ثواني" style="margin:0;width:70px">
+        </div>
+        <div class="btn-row" style="margin-bottom:8px">
+          <button class="btn-sm btn-success" onclick="openKnockoutReg()">📝 تسجيل</button>
+          <button class="btn-sm btn-danger" onclick="socket.emit('room:knockout-lock',{code:ROOM_CODE})">🔒 قفل</button>
+        </div>
+        <input class="ctrl" id="ko-q" placeholder="اكتب السؤال...">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div style="position:relative"><input class="ctrl" id="ko-o1" placeholder="خيار 1" style="margin:0;padding-left:30px"><span onclick="setKoCorrect(1)" id="ko-c1" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">⚪</span></div>
+          <div style="position:relative"><input class="ctrl" id="ko-o2" placeholder="خيار 2" style="margin:0;padding-left:30px"><span onclick="setKoCorrect(2)" id="ko-c2" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">⚪</span></div>
+          <div style="position:relative"><input class="ctrl" id="ko-o3" placeholder="خيار 3" style="margin:0;padding-left:30px"><span onclick="setKoCorrect(3)" id="ko-c3" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">⚪</span></div>
+          <div style="position:relative"><input class="ctrl" id="ko-o4" placeholder="خيار 4" style="margin:0;padding-left:30px"><span onclick="setKoCorrect(4)" id="ko-c4" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px">⚪</span></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm btn-primary" onclick="askKnockout()">▶ اطرح</button>
+          <button class="btn-sm btn-warn" onclick="socket.emit('room:knockout-reveal',{code:ROOM_CODE})">🔓 اكشف</button>
+          <button class="btn-sm btn-danger" onclick="socket.emit('room:knockout-stop',{code:ROOM_CODE})">⏹ إيقاف</button>
+        </div>
+        <div id="ko-stats-ctrl" style="margin-top:8px;font-size:0.82rem;color:var(--muted)">—</div>
+      </div>
+
+      <!-- Password ctrl -->
+      <div class="ctrl-panel" id="ctrl-password">
+        <input class="ctrl" id="pw-word" placeholder="اكتب كلمة السر..." maxlength="20">
+        <div class="btn-row">
+          <button class="btn-sm btn-primary" onclick="startPassword()">▶ بدء</button>
+          <button class="btn-sm btn-warn" onclick="socket.emit('room:password-reveal',{code:ROOM_CODE})">💡 اكشف حرف</button>
+          <button class="btn-sm btn-danger" onclick="socket.emit('room:password-stop',{code:ROOM_CODE})">◼ إيقاف</button>
+        </div>
+        <div id="pw-status-ctrl" style="margin-top:10px;color:var(--muted);font-size:0.85rem">الحرف الأول والأخير يظهرون تلقائياً — المشاهدون يخمنون في الدردشة</div>
+      </div>
+
+      <!-- Word War ctrl -->
+      <div class="ctrl-panel" id="ctrl-wordwar">
+        <input class="ctrl" id="ww-category-in" placeholder="الفئة (مثل: فواكه، مدن، حيوانات...)" maxlength="40">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input class="ctrl" id="ww-red-kw" value="أحمر" placeholder="كلمة انضمام الأحمر" style="margin:0;flex:1">
+          <input class="ctrl" id="ww-blue-kw" value="أزرق" placeholder="كلمة انضمام الأزرق" style="margin:0;flex:1">
+        </div>
+        <input class="ctrl" id="ww-words" placeholder="كلمات صحيحة مفصولة بفواصل (اختياري — فارغ = أي كلمة جديدة تُحسب)">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <span class="label-sm" style="margin:0">مدة الجولة (ثانية):</span>
+          <input class="ctrl" id="ww-duration" type="number" value="60" min="15" max="300" style="width:80px;margin:0">
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm btn-success" onclick="wwOpen()">📝 فتح التسجيل</button>
+          <button class="btn-sm btn-primary" onclick="wwStart()">▶ بدء الجولة</button>
+          <button class="btn-sm btn-danger" onclick="socket.emit('room:wordwar-stop',{code:ROOM_CODE})">⏹ إيقاف</button>
+          <button class="btn-sm btn-warn" onclick="wwReset()">🔄 تصفير</button>
+        </div>
+        <div id="ww-status-ctrl" style="margin-top:10px;color:var(--muted);font-size:0.85rem">فتح التسجيل لا يصفّر النقاط — التصفير زر مستقل</div>
+      </div>
+    </div>
+
+    <!-- POLL DISPLAY -->
+    <div class="poll-card activity-display" id="poll-display">
+      <div class="card-title">📊 التصويت الحالي</div>
+      <div class="poll-question" id="poll-q-display"></div>
+      <div class="poll-options" id="poll-options-display"></div>
+      <div class="poll-timer" id="poll-timer-display"></div>
+    </div>
+
+    <!-- WHEEL DISPLAY -->
+    <div class="card activity-display" id="wheel-display">
+      <div class="card-title">🎡 العجلة</div>
+      <div class="wheel-wrap">
+        <div id="wheel-status" style="font-size:0.9rem;color:var(--success);font-weight:700;"></div>
+        <div class="wheel-canvas-wrap">
+          <canvas id="wheelCanvas" width="260" height="260"></canvas>
+          <div class="wheel-pointer"></div>
+        </div>
+        <div class="wheel-entries-count" id="wheel-entries-count">0 مشترك</div>
+        <div class="wheel-winner-banner" id="wheel-winner">
+          <div style="font-size:1.5rem;margin-bottom:6px">🎉</div>
+          <div style="color:var(--muted);font-size:0.85rem;margin-bottom:4px">الفائز</div>
+          <div class="wheel-winner-name" id="wheel-winner-name"></div>
+        </div>
+        <!-- Viewer join button -->
+        <button class="btn-sm btn-success" id="btn-join-wheel" onclick="joinWheelFromChat()" style="display:none">
+          ✋ سجّل في العجلة
+        </button>
+      </div>
+    </div>
+
+    <!-- QUIZ DISPLAY -->
+    <div class="card activity-display" id="quiz-display">
+      <div class="card-title">❓ سؤال وجواب</div>
+      <div class="poll-question" id="quiz-q-display"></div>
+      <div class="quiz-choices" id="quiz-choices-display"></div>
+      <div class="quiz-stats" id="quiz-stats-display"></div>
+      <div class="quiz-winner-banner" id="quiz-winner-banner">
+        <div style="font-size:1.2rem">🏆 أول إجابة صحيحة</div>
+        <div id="quiz-winner-name" style="font-size:1.1rem;font-weight:900;color:var(--success);margin-top:6px"></div>
+      </div>
+      <div class="poll-timer" id="quiz-timer-display"></div>
+    </div>
+
+    <!-- VIEWERS CARD (for everyone) -->
+    <div class="card" id="viewers-card">
+      <div class="card-title">👥 المشاهدون <span id="viewers-count-card" style="color:var(--accent)">0</span></div>
+      <div class="viewers-chips" id="viewers-chips"></div>
+    </div>
+
+    <!-- GUESS DISPLAY -->
+    <div class="card activity-display" id="guess-display">
+      <div class="card-title">💡 خمّن الكلمة</div>
+      <div id="guess-letters-row" style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:14px 0;direction:rtl"></div>
+      <div id="guess-hint-display" style="text-align:center;font-size:1rem;color:var(--warning);font-weight:700;margin-bottom:12px"></div>
+      <div id="guess-winners-display" style="display:flex;flex-direction:column;gap:6px"></div>
+      <!-- Viewer answer -->
+      <div id="guess-answer-wrap" style="display:none;margin-top:12px">
+        <div style="display:flex;gap:8px">
+          <input class="chat-input" id="guess-answer-input" placeholder="اكتب الكلمة..." style="flex:1">
+          <button class="chat-send" onclick="submitGuessAnswer()">إرسال</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KNOCKOUT DISPLAY -->
+    <div class="card activity-display" id="knockout-display">
+      <div class="card-title">🏆 بطولة خروج</div>
+      <div id="ko-phase-label" style="text-align:center;font-size:0.9rem;color:var(--warning);font-weight:700;margin-bottom:10px"></div>
+      <!-- Registration -->
+      <div id="ko-reg-section" style="display:none;text-align:center;padding:10px">
+        <div id="ko-reg-keyword" style="font-size:1.5rem;font-weight:900;color:var(--text);margin-bottom:6px"></div>
+        <div id="ko-reg-count" style="font-size:0.9rem;color:var(--muted);margin-bottom:10px">0 / 16</div>
+        <button id="btn-join-knockout" class="btn-sm btn-success" onclick="joinKnockout()" style="display:none">✋ انضم للبطولة</button>
+      </div>
+      <!-- Question -->
+      <div id="ko-q-section" style="display:none">
+        <div id="ko-q-text" style="font-size:1.1rem;font-weight:900;text-align:center;margin-bottom:12px;padding:12px;background:rgba(239,68,68,.08);border-radius:10px"></div>
+        <div id="ko-options-display" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div class="timer-bar" style="margin-top:10px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden"><div id="ko-timer-fill" style="height:100%;background:linear-gradient(90deg,#ef4444,#fbbf24);border-radius:3px;transition:width .15s linear;width:100%"></div></div>
+        <div id="ko-answer-status" style="text-align:center;font-size:0.82rem;color:var(--muted);margin-top:6px"></div>
+      </div>
+      <!-- Stats -->
+      <div id="ko-stats" style="display:flex;justify-content:center;gap:20px;margin-top:10px">
+        <div style="text-align:center"><div id="ko-alive-num" style="font-size:1.5rem;font-weight:900;color:var(--success)">0</div><div style="font-size:0.75rem;color:var(--muted)">باقي</div></div>
+        <div style="text-align:center"><div id="ko-round-num" style="font-size:1.5rem;font-weight:900;color:var(--warning)">0</div><div style="font-size:0.75rem;color:var(--muted)">الجولة</div></div>
+        <div style="text-align:center"><div id="ko-elim-num" style="font-size:1.5rem;font-weight:900;color:var(--danger)">0</div><div style="font-size:0.75rem;color:var(--muted)">خرجوا</div></div>
+      </div>
+      <div id="ko-winner-banner" style="display:none;text-align:center;padding:16px;margin-top:10px;background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);border-radius:12px">
+        <div style="font-size:2rem">🏆</div>
+        <div id="ko-winner-name" style="font-size:1.3rem;font-weight:900;color:#ffd700;margin-top:6px"></div>
+        <div style="font-size:0.85rem;color:var(--muted)">بطل البطولة!</div>
+      </div>
+    </div>
+
+    <!-- PASSWORD DISPLAY -->
+    <div class="card activity-display" id="password-display">
+      <div class="card-title">🔐 كلمة السر</div>
+      <div id="pw-letters-row" style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:14px 0;direction:rtl"></div>
+      <div id="pw-status" style="text-align:center;font-size:0.95rem;color:var(--warning);font-weight:700"></div>
+      <div id="pw-winner-banner" style="display:none;text-align:center;padding:14px;margin-top:10px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.35);border-radius:12px">
+        <div style="font-size:1.6rem">🏆</div>
+        <div id="pw-winner-name" style="font-size:1.2rem;font-weight:900;color:var(--success);margin-top:4px"></div>
+        <div style="font-size:0.85rem;color:var(--muted)">عرف كلمة السر!</div>
+      </div>
+    </div>
+
+    <!-- WORD WAR DISPLAY -->
+    <div class="card activity-display" id="wordwar-display">
+      <div class="card-title">⚔️ حرب الكلمات</div>
+      <div id="ww-phase" style="text-align:center;font-size:0.9rem;color:var(--warning);font-weight:700;margin-bottom:6px"></div>
+      <div id="ww-category" style="text-align:center;font-size:1.05rem;font-weight:900;margin-bottom:10px"></div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:10px">
+        <div style="text-align:center;padding:10px;border-radius:12px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.35)">
+          <div style="font-size:0.8rem;color:#f87171;font-weight:800">🔴 الأحمر (<span id="ww-red-count">0</span>)</div>
+          <div id="ww-red-score" style="font-size:1.7rem;font-weight:900">0</div>
+        </div>
+        <div style="font-weight:900;color:var(--muted)">VS</div>
+        <div style="text-align:center;padding:10px;border-radius:12px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.35)">
+          <div style="font-size:0.8rem;color:#60a5fa;font-weight:800">🔵 الأزرق (<span id="ww-blue-count">0</span>)</div>
+          <div id="ww-blue-score" style="font-size:1.7rem;font-weight:900">0</div>
+        </div>
+      </div>
+      <div id="ww-timer" style="text-align:center;font-size:1.1rem;font-weight:900;margin-bottom:8px;font-variant-numeric:tabular-nums"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div id="ww-red-words" style="min-height:46px;border-radius:10px;padding:6px;background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.15);display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start"></div>
+        <div id="ww-blue-words" style="min-height:46px;border-radius:10px;padding:6px;background:rgba(96,165,250,.05);border:1px solid rgba(96,165,250,.15);display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start"></div>
+      </div>
+      <div id="ww-result" style="display:none;text-align:center;padding:12px;margin-top:10px;border-radius:12px;font-weight:900;font-size:1.1rem"></div>
+    </div>
+
+  </div>
+
+  <!-- Sidebar = Chat -->
+  <div class="sidebar">
+    <div class="sidebar-header">💬 الدردشة <span id="my-name-badge" style="margin-right:auto;color:var(--accent);font-size:0.8rem"></span></div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-area">
+      <input class="chat-input" id="chat-input" type="text" placeholder="اكتب رسالة..." maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">إرسال</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const ROOM_CODE = (params.get('code') || '').toUpperCase();
+const IS_HOST = params.get('host') === '1';
+const URL_NAME = params.get('name') || '';
+
+let myName = '';
+let socket = null;
+let pollEndTime = 0, pollTimerInterval = null;
+let quizEndTime = 0, quizTimerInterval = null;
+let myVote = -1, myQuizAnswer = -1;
+let wheelEntries = [];
+let wheelSpinning = false;
+let currentWheelAngle = 0;
+let wheelJoined = false;
+
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  if (!ROOM_CODE) { location.href = '/rooms.html'; return; }
+  document.getElementById('header-code').textContent = ROOM_CODE;
+
+  // Check room exists
+  try {
+    const r = await fetch(`/api/live-rooms/${ROOM_CODE}`);
+    const d = await r.json();
+    if (!d.ok) { alert('الغرفة غير موجودة أو انتهت'); location.href='/rooms.html'; return; }
+    document.getElementById('join-host-info').textContent = `غرفة ${d.hostName} — ${ROOM_CODE}`;
+  } catch(e) { alert('خطأ في الاتصال'); return; }
+
+  if (IS_HOST && URL_NAME) {
+    enterRoom(URL_NAME, true);
+  } else if (URL_NAME) {
+    enterRoom(URL_NAME, false);
+  } else {
+    document.getElementById('join-screen').classList.remove('hidden');
+  }
+}
+
+function joinAsViewer() {
+  const name = document.getElementById('join-name-input').value.trim();
+  if (!name) { document.getElementById('join-screen-err').textContent = 'ادخل اسمك'; return; }
+  enterRoom(name, false);
+}
+
+function enterRoom(name, isHost) {
+  myName = name;
+  document.getElementById('join-screen').classList.add('hidden');
+  document.getElementById('my-name-badge').textContent = name;
+
+  if (isHost) {
+    document.getElementById('host-controls').classList.add('show');
+    document.getElementById('btn-close-room').style.display = 'block';
+    document.getElementById('host-badge-wrap').innerHTML = '<div class="host-badge">مضيف</div>';
+  }
+
+  connectSocket(isHost);
+}
+
+// ── Socket ────────────────────────────────────────────────
+function connectSocket(isHost) {
+  socket = io();
+
+  socket.on('connect', () => {
+    if (isHost) {
+      socket.emit('room:host', { code: ROOM_CODE, hostName: myName });
+    } else {
+      socket.emit('room:join', { code: ROOM_CODE, name: myName });
+    }
+  });
+
+  socket.on('room:joined', (data) => {
+    updateViewerCount(data.viewerCount);
+    if (data.chatHistory) data.chatHistory.forEach(m => appendChat(m.name, m.message));
+    if (data.poll) showPollForViewer(data.poll);
+    if (data.wheel) {
+      document.getElementById('wheel-display').classList.add('show');
+      document.getElementById('wheel-entries-count').textContent = `${data.wheel.count} مشترك`;
+      if (data.wheel.accepting) {
+        document.getElementById('wheel-status').textContent = `✅ التسجيل مفتوح — اكتب "${data.wheel.keyword}" في الدردشة`;
+        if (!isHost) showJoinWheelBtn(data.wheel.keyword);
+      }
+    }
+    if (data.quiz) showQuizForViewer(data.quiz);
+    if (data.password) {
+      document.getElementById('password-display').classList.add('show');
+      renderPwLetters(data.password.letters);
+      document.getElementById('pw-status').textContent = '🔐 اكتب الكلمة في الدردشة!';
+    }
+    if (data.wordwar) applyWwState(data.wordwar);
+  });
+
+  socket.on('room:host-ok', (data) => {
+    updateViewerCount(data.viewerCount);
+    // Load wheel state
+    fetch(`/api/live-rooms/${ROOM_CODE}/wheel`).then(r=>r.json()).then(d => {
+      if (d.ok !== false) {
+        wheelEntries = d.entries || [];
+        document.getElementById('wheel-entries-count').textContent = `${d.count} مشترك`;
+        document.getElementById('wheel-count-ctrl').textContent = `${d.count} مشترك`;
+        if (d.entries && d.entries.length > 0) {
+          document.getElementById('wheel-display').classList.add('show');
+          drawWheel(d.entries);
+        }
+      }
+    });
+  });
+
+  socket.on('room:error', (d) => { alert(d.message); location.href='/rooms.html'; });
+  socket.on('room:closed', () => { document.getElementById('room-closed').classList.add('show'); });
+
+  socket.on('room:viewers', (d) => {
+    updateViewerCount(d.count);
+    updateViewersList(d.viewers || []);
+  });
+
+  socket.on('room:activity', (d) => {
+    const el = document.createElement('div');
+    el.className = 'activity-msg';
+    el.textContent = d.type === 'join' ? `👋 ${d.name} انضم` : `${d.name} غادر`;
+    document.getElementById('chat-messages').appendChild(el);
+    scrollChat();
+  });
+
+  socket.on('room:chat', (d) => { appendChat(d.name, d.message); });
+
+  // Poll events
+  socket.on('room:poll-start', (d) => { showPollForViewer(d); });
+  socket.on('room:poll-vote', (d) => { updatePollResults(d.results, d.totalVotes); });
+  socket.on('room:poll-end', (d) => {
+    updatePollResults(d.results, d.totalVotes);
+    clearInterval(pollTimerInterval);
+    document.getElementById('poll-timer-display').textContent = '⏱ انتهى التصويت';
+    document.querySelectorAll('.poll-option').forEach(el => el.style.cursor = 'default');
+  });
+
+  // Wheel events
+  socket.on('room:wheel-open', (d) => {
+    document.getElementById('wheel-display').classList.add('show');
+    document.getElementById('wheel-status').textContent = `✅ التسجيل مفتوح — اكتب "${d.keyword}" في الدردشة`;
+    if (!IS_HOST) showJoinWheelBtn(d.keyword);
+  });
+  socket.on('room:wheel-close', () => {
+    document.getElementById('wheel-status').textContent = '🔒 التسجيل مغلق';
+    document.getElementById('btn-join-wheel').style.display = 'none';
+  });
+  socket.on('room:wheel-keyword', (d) => {
+    document.getElementById('wheel-keyword').value = d.keyword;
+  });
+  socket.on('room:wheel-update', (d) => {
+    wheelEntries = d.entries || [];
+    document.getElementById('wheel-entries-count').textContent = `${wheelEntries.length} مشترك`;
+    document.getElementById('wheel-count-ctrl').textContent = `${wheelEntries.length} مشترك`;
+    document.getElementById('wheel-display').classList.add('show');
+    drawWheel(wheelEntries);
+    if (d.newEntry && d.newEntry.name === myName) {
+      document.getElementById('btn-join-wheel').style.display = 'none';
+      wheelJoined = true;
+    }
+  });
+  socket.on('room:wheel-spin', (d) => {
+    wheelEntries = d.entries || [];
+    document.getElementById('wheel-winner').classList.remove('show');
+    spinWheelAnimation(d.winnerIndex, d.duration, () => {
+      document.getElementById('wheel-winner-name').textContent = d.winner.name;
+      document.getElementById('wheel-winner').classList.add('show');
+    });
+  });
+
+  // Quiz events
+  socket.on('room:quiz-start', (d) => { showQuizForViewer(d); });
+  socket.on('room:quiz-answer', (d) => {
+    document.getElementById('quiz-stats-display').textContent = `${d.totalAnswers} إجابة`;
+  });
+  socket.on('room:quiz-end', (d) => {
+    clearInterval(quizTimerInterval);
+    document.getElementById('quiz-timer-display').textContent = '⏱ انتهى السؤال';
+    document.querySelectorAll('.quiz-choice').forEach((el, i) => {
+      el.classList.remove('correct', 'wrong');
+      el.classList.add(i === d.correctIndex ? 'correct' : 'wrong');
+      el.classList.add('answered');
+    });
+    if (d.winner) {
+      document.getElementById('quiz-winner-name').textContent = d.winner.name;
+      document.getElementById('quiz-winner-banner').classList.add('show');
+    }
+  });
+
+  // ── Guess events ──────────────────────────────────────
+  socket.on('room:guess-started', (d) => {
+    document.getElementById('guess-display').classList.add('show');
+    guessAnswered = false;
+    renderGuessLetters(d.length, d.letters || []);
+    document.getElementById('guess-hint-display').textContent = d.hint ? `💡 ${d.hint}` : '';
+    renderGuessWinners(d.winners || []);
+    if (!IS_HOST) {
+      document.getElementById('guess-answer-wrap').style.display = 'block';
+      document.getElementById('guess-answer-input').value = '';
+    }
+  });
+
+  socket.on('room:guess-won', (d) => {
+    renderGuessWinners(d.winners);
+    if (d.winner.name === myName) {
+      guessAnswered = true;
+      document.getElementById('guess-answer-wrap').style.display = 'none';
+      appendChat('🏆 نتيجة', `${d.winner.name} خمّن الكلمة! (مركز ${d.winner.rank})`);
+    }
+  });
+
+  socket.on('room:guess-reveal', (d) => {
+    const row = document.getElementById('guess-letters-row');
+    row.innerHTML = [...d.word].map(c => `<div style="width:44px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:900;background:rgba(74,222,128,.2);border:2px solid rgba(74,222,128,.6);color:var(--success);">${escHtml(c)}</div>`).join('');
+    document.getElementById('guess-hint-display').innerHTML = `✅ الجواب: <span style="color:var(--success)">${escHtml(d.word)}</span>`;
+    document.getElementById('guess-answer-wrap').style.display = 'none';
+  });
+
+  socket.on('room:guess-stopped', () => {
+    document.getElementById('guess-answer-wrap').style.display = 'none';
+  });
+
+  // ── Knockout events ───────────────────────────────────
+  socket.on('room:knockout-register', (d) => {
+    document.getElementById('knockout-display').classList.add('show');
+    document.getElementById('ko-phase-label').textContent = '📝 مرحلة التسجيل';
+    document.getElementById('ko-reg-section').style.display = 'block';
+    document.getElementById('ko-q-section').style.display = 'none';
+    document.getElementById('ko-winner-banner').style.display = 'none';
+    document.getElementById('ko-reg-keyword').textContent = d.keyword;
+    document.getElementById('ko-reg-count').textContent = `0 / ${d.maxPlayers}`;
+    koElimTotal = 0;
+    document.getElementById('ko-elim-num').textContent = '0';
+    document.getElementById('ko-round-num').textContent = '0';
+    if (!IS_HOST) {
+      document.getElementById('btn-join-knockout').style.display = 'block';
+      document.getElementById('btn-join-knockout').textContent = `✋ انضم — اكتب "${d.keyword}"`;
+    }
+  });
+
+  socket.on('room:knockout-joined', (d) => {
+    document.getElementById('ko-reg-count').textContent = `${d.count} / ${d.max}`;
+    document.getElementById('ko-stats-ctrl').textContent = `${d.count} لاعب مسجل`;
+  });
+
+  socket.on('room:knockout-locked', (d) => {
+    document.getElementById('ko-phase-label').textContent = `🔒 التسجيل مغلق — ${d.count} لاعب`;
+    document.getElementById('ko-reg-section').style.display = 'none';
+    document.getElementById('ko-alive-num').textContent = d.count;
+    document.getElementById('ko-stats-ctrl').textContent = `${d.count} لاعب جاهز`;
+  });
+
+  socket.on('room:knockout-question', (d) => {
+    document.getElementById('knockout-display').classList.add('show');
+    document.getElementById('ko-phase-label').textContent = `❓ الجولة ${d.round}`;
+    document.getElementById('ko-reg-section').style.display = 'none';
+    document.getElementById('ko-q-section').style.display = 'block';
+    document.getElementById('ko-q-text').textContent = d.question;
+    document.getElementById('ko-answer-status').textContent = `0 / ${d.alivePlayers} جاوبوا`;
+    document.getElementById('ko-round-num').textContent = d.round;
+    document.getElementById('ko-alive-num').textContent = d.alivePlayers;
+    koAnswered = false;
+    renderKoOptions(d.options, -1, false);
+    // Timer
+    if (koTimerInt) clearInterval(koTimerInt);
+    const total = d.answerTime * 1000, start = Date.now();
+    const fill = document.getElementById('ko-timer-fill');
+    fill.style.width = '100%';
+    koTimerInt = setInterval(() => {
+      const pct = Math.max(0, 100 - (Date.now() - start) / total * 100);
+      fill.style.width = pct + '%';
+      if (pct <= 0) clearInterval(koTimerInt);
+    }, 50);
+  });
+
+  socket.on('room:knockout-answered', (d) => {
+    document.getElementById('ko-answer-status').textContent = `${d.count} / ${d.total} جاوبوا`;
+  });
+
+  socket.on('room:knockout-reveal', (d) => {
+    if (koTimerInt) { clearInterval(koTimerInt); koTimerInt = null; }
+    document.getElementById('ko-timer-fill').style.width = '0%';
+    const opts = document.getElementById('ko-options-display');
+    if (opts) {
+      Array.from(opts.children).forEach((el, i) => {
+        if (i + 1 === d.correct) el.style.cssText += 'background:rgba(74,222,128,.1);border-color:var(--success);';
+        else el.style.cssText += 'background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.2);';
+      });
+    }
+    koElimTotal += (d.eliminated || []).length;
+    document.getElementById('ko-alive-num').textContent = d.aliveCount;
+    document.getElementById('ko-elim-num').textContent = koElimTotal;
+    document.getElementById('ko-phase-label').textContent = `📊 النتائج — ${d.aliveCount} باقي`;
+    if (d.winner) {
+      document.getElementById('ko-winner-name').textContent = d.winner.name;
+      document.getElementById('ko-winner-banner').style.display = 'block';
+      document.getElementById('ko-phase-label').textContent = '🏆 البطل!';
+    }
+  });
+
+  socket.on('room:knockout-stopped', () => {
+    document.getElementById('knockout-display').classList.remove('show');
+  });
+
+  // ── Password events ───────────────────────────────────
+  socket.on('room:password-update', (d) => {
+    document.getElementById('password-display').classList.add('show');
+    document.getElementById('pw-winner-banner').style.display = 'none';
+    renderPwLetters(d.letters);
+    document.getElementById('pw-status').textContent = IS_HOST ? 'اكشف الحروف أو انتظر التخمين في الدردشة' : '🔐 اكتب الكلمة في الدردشة!';
+    const hidden = (d.letters || []).filter(c => c === '_').length;
+    const ctrl = document.getElementById('pw-status-ctrl'); if (ctrl) ctrl.textContent = hidden + ' حرف مخفي متبقي';
+  });
+  socket.on('room:password-won', (d) => {
+    renderPwLetters([...d.word]);
+    document.getElementById('pw-status').textContent = '✅ الكلمة: ' + d.word;
+    document.getElementById('pw-winner-name').textContent = d.winner.name;
+    document.getElementById('pw-winner-banner').style.display = 'block';
+    appendChat('🏆 نتيجة', `${d.winner.name} عرف كلمة السر!`);
+  });
+  socket.on('room:password-stopped', (d) => {
+    if (d.word) { renderPwLetters([...d.word]); document.getElementById('pw-status').textContent = '◼ انتهت الجولة — الكلمة: ' + d.word; }
+  });
+
+  // ── Word War events ───────────────────────────────────
+  socket.on('room:wordwar-open', (d) => { applyWwState({ ...d, phase: 'register' }); });
+  socket.on('room:wordwar-join', (d) => {
+    document.getElementById('ww-red-count').textContent = d.redCount;
+    document.getElementById('ww-blue-count').textContent = d.blueCount;
+    const ctrl = document.getElementById('ww-status-ctrl'); if (ctrl) ctrl.textContent = `🔴 ${d.redCount} × ${d.blueCount} 🔵`;
+    if (d.player === myName) appendChat('⚔️ النظام', `انضممت للفريق ${d.team === 'red' ? 'الأحمر 🔴' : 'الأزرق 🔵'}`);
+  });
+  socket.on('room:wordwar-start', (d) => {
+    applyWwState({ ...d, phase: 'playing' });
+    document.getElementById('ww-red-words').innerHTML = '';
+    document.getElementById('ww-blue-words').innerHTML = '';
+    document.getElementById('ww-result').style.display = 'none';
+  });
+  socket.on('room:wordwar-word', (d) => {
+    document.getElementById('ww-red-score').textContent = d.redScore;
+    document.getElementById('ww-blue-score').textContent = d.blueScore;
+    const col = document.getElementById(d.team === 'red' ? 'ww-red-words' : 'ww-blue-words');
+    const chip = document.createElement('span');
+    chip.style.cssText = 'font-size:0.75rem;font-weight:800;padding:3px 9px;border-radius:99px;' + (d.team === 'red' ? 'background:rgba(248,113,113,.15);color:#fca5a5' : 'background:rgba(96,165,250,.15);color:#93c5fd');
+    chip.textContent = d.word;
+    col.appendChild(chip);
+    while (col.children.length > 14) col.removeChild(col.firstChild);
+  });
+  socket.on('room:wordwar-end', (d) => {
+    if (wwTimerInt) { clearInterval(wwTimerInt); wwTimerInt = null; }
+    document.getElementById('ww-timer').textContent = '';
+    document.getElementById('ww-phase').textContent = '🏁 انتهت الجولة';
+    document.getElementById('ww-red-score').textContent = d.redScore;
+    document.getElementById('ww-blue-score').textContent = d.blueScore;
+    const res = document.getElementById('ww-result');
+    res.style.display = 'block';
+    if (d.winner === 'red') { res.style.cssText += ';background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);color:#fca5a5'; res.textContent = '🏆 فاز الفريق الأحمر!'; }
+    else if (d.winner === 'blue') { res.style.cssText += ';background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.4);color:#93c5fd'; res.textContent = '🏆 فاز الفريق الأزرق!'; }
+    else { res.style.cssText += ';background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);color:#fbbf24'; res.textContent = '🤝 تعادل!'; }
+  });
+  socket.on('room:wordwar-reset', () => {
+    if (wwTimerInt) { clearInterval(wwTimerInt); wwTimerInt = null; }
+    ['ww-red-score','ww-blue-score','ww-red-count','ww-blue-count'].forEach(id => document.getElementById(id).textContent = '0');
+    document.getElementById('ww-red-words').innerHTML = '';
+    document.getElementById('ww-blue-words').innerHTML = '';
+    document.getElementById('ww-result').style.display = 'none';
+    document.getElementById('ww-timer').textContent = '';
+    document.getElementById('ww-phase').textContent = '🔄 جولة جديدة — النقاط والفرق صُفّرت';
+    const ctrl = document.getElementById('ww-status-ctrl'); if (ctrl) ctrl.textContent = 'تم التصفير';
+  });
+  socket.on('room:error-soft', (d) => { alert(d.message); });
+}
+
+// ── Password & Word War ──────────────────────────────────
+let wwTimerInt = null;
+
+function startPassword() {
+  const w = document.getElementById('pw-word').value.trim();
+  if (w.length < 2) { alert('اكتب كلمة من حرفين على الأقل'); return; }
+  socket.emit('room:password-start', { code: ROOM_CODE, word: w });
+}
+
+function renderPwLetters(letters) {
+  document.getElementById('pw-letters-row').innerHTML = (letters || []).map(c => {
+    const hidden = c === '_';
+    return `<div style="width:44px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:900;${hidden ? 'background:rgba(255,255,255,.04);border:2px dashed rgba(255,255,255,.2);color:var(--muted)' : 'background:rgba(74,222,128,.15);border:2px solid rgba(74,222,128,.5);color:var(--success)'}">${hidden ? '؟' : escHtml(c)}</div>`;
+  }).join('');
+}
+
+function wwOpen() {
+  const category = document.getElementById('ww-category-in').value.trim();
+  const redKeyword = document.getElementById('ww-red-kw').value.trim() || 'أحمر';
+  const blueKeyword = document.getElementById('ww-blue-kw').value.trim() || 'أزرق';
+  const validWords = document.getElementById('ww-words').value.split(/[،,]/).map(w => w.trim()).filter(Boolean);
+  if (!category) { alert('اكتب الفئة أول'); return; }
+  socket.emit('room:wordwar-open', { code: ROOM_CODE, category, redKeyword, blueKeyword, validWords });
+}
+
+function wwStart() {
+  const duration = parseInt(document.getElementById('ww-duration').value) || 60;
+  socket.emit('room:wordwar-start', { code: ROOM_CODE, duration });
+}
+
+function wwReset() {
+  if (!confirm('تصفير النقاط والفرق وبدء من الصفر؟')) return;
+  socket.emit('room:wordwar-reset', { code: ROOM_CODE });
+}
+
+function applyWwState(d) {
+  document.getElementById('wordwar-display').classList.add('show');
+  document.getElementById('ww-category').textContent = d.category ? '📂 الفئة: ' + d.category : '';
+  document.getElementById('ww-red-score').textContent = d.redScore || 0;
+  document.getElementById('ww-blue-score').textContent = d.blueScore || 0;
+  document.getElementById('ww-red-count').textContent = d.redCount || 0;
+  document.getElementById('ww-blue-count').textContent = d.blueCount || 0;
+  if (d.phase === 'register') {
+    document.getElementById('ww-phase').innerHTML = `📝 التسجيل مفتوح — اكتب <b style="color:#f87171">"${escHtml(d.redKeyword || 'أحمر')}"</b> أو <b style="color:#60a5fa">"${escHtml(d.blueKeyword || 'أزرق')}"</b> في الدردشة`;
+    document.getElementById('ww-timer').textContent = '';
+  } else if (d.phase === 'playing') {
+    document.getElementById('ww-phase').textContent = '🔥 الجولة شغالة — اكتب كلمات من الفئة في الدردشة!';
+    if (d.endTime) startWwTimer(d.endTime);
+  }
+}
+
+function startWwTimer(endTime) {
+  if (wwTimerInt) clearInterval(wwTimerInt);
+  const el = document.getElementById('ww-timer');
+  function tick() {
+    const s = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+    el.textContent = '⏱ ' + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    if (s <= 0 && wwTimerInt) { clearInterval(wwTimerInt); wwTimerInt = null; }
+  }
+  tick();
+  wwTimerInt = setInterval(tick, 250);
+}
+
+// ── Chat ──────────────────────────────────────────────────
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg || !socket) return;
+  socket.emit('room:chat', { code: ROOM_CODE, message: msg });
+  input.value = '';
+}
+
+function appendChat(name, message) {
+  const el = document.createElement('div');
+  el.className = 'chat-msg';
+  const initials = name.substring(0,2);
+  const isMe = name === myName;
+  el.innerHTML = `
+    <div class="chat-avatar">${initials}</div>
+    <div class="chat-bubble">
+      <div class="chat-name ${isMe ? 'host-name' : ''}">${name}</div>
+      <div class="chat-text">${escHtml(message)}</div>
+    </div>`;
+  document.getElementById('chat-messages').appendChild(el);
+  scrollChat();
+}
+
+function scrollChat() {
+  const c = document.getElementById('chat-messages');
+  c.scrollTop = c.scrollHeight;
+}
+
+// ── Viewers ───────────────────────────────────────────────
+function updateViewerCount(count) {
+  document.getElementById('viewer-count-display').textContent = `${count} مشاهد`;
+  document.getElementById('viewers-count-card').textContent = count;
+}
+
+function updateViewersList(viewers) {
+  const chips = viewers.map(n => `<div class="viewer-chip">${escHtml(n)}</div>`).join('');
+  document.getElementById('viewers-chips').innerHTML = chips || '<span style="color:var(--muted);font-size:0.85rem">—</span>';
+  // Host panel
+  document.getElementById('viewers-list-host').innerHTML = chips;
+  document.getElementById('no-viewers-msg').style.display = viewers.length ? 'none' : 'block';
+}
+
+// ── Poll ──────────────────────────────────────────────────
+function startPoll() {
+  const q = document.getElementById('poll-q').value.trim();
+  const options = [
+    document.getElementById('poll-o1').value.trim(),
+    document.getElementById('poll-o2').value.trim(),
+    document.getElementById('poll-o3').value.trim(),
+    document.getElementById('poll-o4').value.trim(),
+  ].filter(Boolean);
+  const timer = parseInt(document.getElementById('poll-timer').value) || 60;
+  if (!q || options.length < 2) { alert('أدخل سؤالاً وخيارين على الأقل'); return; }
+  socket.emit('room:poll-start', { code: ROOM_CODE, question: q, options, timer });
+}
+
+function stopPoll() { socket.emit('room:poll-stop', { code: ROOM_CODE }); }
+
+function showPollForViewer(data) {
+  document.getElementById('poll-display').classList.add('show');
+  document.getElementById('poll-q-display').textContent = data.question;
+  myVote = -1;
+  const container = document.getElementById('poll-options-display');
+  container.innerHTML = '';
+  (data.options || []).forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'poll-option';
+    div.dataset.idx = i;
+    div.innerHTML = `<div class="progress-bar" id="pbar-${i}" style="width:0%"></div><div class="poll-option-text"><span>${i+1}. ${escHtml(opt)}</span><span class="poll-pct" id="ppct-${i}">0%</span></div>`;
+    if (!IS_HOST) div.onclick = () => votePoll(i);
+    container.appendChild(div);
+  });
+  // Timer
+  if (data.endTime) {
+    pollEndTime = data.endTime;
+    clearInterval(pollTimerInterval);
+    pollTimerInterval = setInterval(updatePollTimer, 500);
+  }
+}
+
+function votePoll(idx) {
+  if (myVote !== -1) return;
+  myVote = idx;
+  const msg = String(idx + 1);
+  document.getElementById('chat-input').value = msg;
+  sendChat();
+  document.querySelectorAll('.poll-option').forEach(el => el.style.cursor = 'default');
+  document.querySelector(`.poll-option[data-idx="${idx}"]`)?.classList.add('voted');
+}
+
+function updatePollResults(results, total) {
+  Object.keys(results).forEach(i => {
+    const pct = total > 0 ? Math.round(results[i] / total * 100) : 0;
+    const bar = document.getElementById(`pbar-${i}`);
+    const pctEl = document.getElementById(`ppct-${i}`);
+    if (bar) bar.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+  });
+}
+
+function updatePollTimer() {
+  const left = Math.max(0, Math.ceil((pollEndTime - Date.now()) / 1000));
+  document.getElementById('poll-timer-display').textContent = left > 0 ? `⏱ ${left} ثانية` : '⏱ انتهى';
+  if (left === 0) clearInterval(pollTimerInterval);
+}
+
+// ── Wheel ─────────────────────────────────────────────────
+const WHEEL_COLORS = ['#7c6bff','#ff6b9d','#4ade80','#fbbf24','#38bdf8','#f87171','#a78bfa','#34d399'];
+
+function drawWheel(entries) {
+  const canvas = document.getElementById('wheelCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, r = W/2 - 6;
+  ctx.clearRect(0, 0, W, H);
+  if (!entries || entries.length === 0) {
+    ctx.fillStyle = '#1e1e30';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#6b6b8a'; ctx.font = 'bold 14px Tajawal'; ctx.textAlign = 'center';
+    ctx.fillText('لا يوجد مشتركون', cx, cy);
+    return;
+  }
+  const slice = (Math.PI * 2) / entries.length;
+  entries.forEach((e, i) => {
+    const start = currentWheelAngle + i * slice;
+    const end = start + slice;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length];
+    ctx.fill();
+    ctx.strokeStyle = '#0a0a12'; ctx.lineWidth = 2; ctx.stroke();
+    // Label
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + slice/2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'white';
+    ctx.font = `bold ${Math.min(14, 90/entries.length + 8)}px Tajawal`;
+    const label = e.name.length > 8 ? e.name.substring(0,7)+'…' : e.name;
+    ctx.fillText(label, r - 10, 5);
+    ctx.restore();
+  });
+  // Center circle
+  ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI*2);
+  ctx.fillStyle = '#0a0a12'; ctx.fill();
+  ctx.strokeStyle = '#1e1e30'; ctx.lineWidth = 2; ctx.stroke();
+}
+
+function spinWheelAnimation(winnerIndex, duration, callback) {
+  const entries = wheelEntries;
+  if (!entries.length) return;
+  const slice = (Math.PI * 2) / entries.length;
+  const targetAngle = -(winnerIndex * slice + slice/2) + Math.PI/2;
+  const totalRotation = Math.PI * 2 * 8 + ((targetAngle - currentWheelAngle) % (Math.PI*2));
+  const start = performance.now();
+  const startAngle = currentWheelAngle;
+  function animate(now) {
+    const elapsed = now - start;
+    const t = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 4);
+    currentWheelAngle = startAngle + totalRotation * ease;
+    drawWheel(entries);
+    if (t < 1) { requestAnimationFrame(animate); }
+    else { currentWheelAngle = targetAngle; drawWheel(entries); callback && callback(); }
+  }
+  requestAnimationFrame(animate);
+}
+
+function openWheel() {
+  const kw = document.getElementById('wheel-keyword').value.trim() || 'اشتراك';
+  socket.emit('room:wheel-keyword', { code: ROOM_CODE, keyword: kw });
+  socket.emit('room:wheel-open', { code: ROOM_CODE });
+  document.getElementById('wheel-display').classList.add('show');
+}
+function closeWheel() { socket.emit('room:wheel-close', { code: ROOM_CODE }); }
+function spinWheel() {
+  if (wheelEntries.length < 2) { alert('يحتاج مشتركين أكثر'); return; }
+  socket.emit('room:wheel-spin', { code: ROOM_CODE, duration: 5 });
+}
+function clearWheel() {
+  if (confirm('مسح كل المشتركين؟')) socket.emit('room:wheel-clear', { code: ROOM_CODE });
+}
+
+function showJoinWheelBtn(keyword) {
+  if (wheelJoined) return;
+  const btn = document.getElementById('btn-join-wheel');
+  btn.textContent = `✋ اكتب "${keyword}" للمشاركة`;
+  btn.style.display = 'block';
+}
+
+function joinWheelFromChat() {
+  const keyword = document.getElementById('wheel-keyword')?.value ||
+    document.getElementById('wheel-status').textContent.match(/"([^"]+)"/)?.[1] || 'اشتراك';
+  document.getElementById('chat-input').value = keyword;
+  sendChat();
+  document.getElementById('btn-join-wheel').style.display = 'none';
+}
+
+// ── Quiz ──────────────────────────────────────────────────
+function startQuiz() {
+  const q = document.getElementById('quiz-q').value.trim();
+  const choices = [
+    document.getElementById('quiz-c1').value.trim(),
+    document.getElementById('quiz-c2').value.trim(),
+    document.getElementById('quiz-c3').value.trim(),
+    document.getElementById('quiz-c4').value.trim(),
+  ].filter(Boolean);
+  const correctIndex = parseInt(document.getElementById('quiz-correct').value);
+  const timer = parseInt(document.getElementById('quiz-timer').value) || 30;
+  if (!q || choices.length < 2) { alert('أدخل سؤالاً وخيارين على الأقل'); return; }
+  socket.emit('room:quiz-start', { code: ROOM_CODE, question: q, choices, correctIndex, timer });
+}
+
+function stopQuiz() { socket.emit('room:quiz-stop', { code: ROOM_CODE }); }
+
+function showQuizForViewer(data) {
+  document.getElementById('quiz-display').classList.add('show');
+  document.getElementById('quiz-q-display').textContent = data.question;
+  document.getElementById('quiz-winner-banner').classList.remove('show');
+  myQuizAnswer = -1;
+  const container = document.getElementById('quiz-choices-display');
+  container.innerHTML = '';
+  (data.choices || []).forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'quiz-choice';
+    div.dataset.idx = i;
+    div.innerHTML = `<div class="choice-num">${i+1}</div><span>${escHtml(c)}</span>`;
+    if (!IS_HOST) div.onclick = () => answerQuiz(i);
+    container.appendChild(div);
+  });
+  if (data.endTime) {
+    quizEndTime = data.endTime;
+    clearInterval(quizTimerInterval);
+    quizTimerInterval = setInterval(() => {
+      const left = Math.max(0, Math.ceil((quizEndTime - Date.now()) / 1000));
+      document.getElementById('quiz-timer-display').textContent = left > 0 ? `⏱ ${left} ثانية` : '⏱ انتهى';
+      if (left === 0) clearInterval(quizTimerInterval);
+    }, 500);
+  }
+}
+
+function answerQuiz(idx) {
+  if (myQuizAnswer !== -1) return;
+  myQuizAnswer = idx;
+  document.getElementById('chat-input').value = String(idx + 1);
+  sendChat();
+  document.querySelectorAll('.quiz-choice').forEach(el => { el.classList.add('answered'); el.onclick = null; });
+}
+
+// ── Host controls tabs ────────────────────────────────────
+function switchCtrl(tab) {
+  document.querySelectorAll('.tab-mini').forEach((b,i) => b.classList.toggle('active', ['poll','wheel','quiz','guess','password','wordwar','knockout','viewers'][i] === tab));
+  document.querySelectorAll('.ctrl-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`ctrl-${tab}`)?.classList.add('active');
+}
+
+// ── Share / Close ─────────────────────────────────────────
+function shareRoom() {
+  const link = `${location.origin}/room.html?code=${ROOM_CODE}`;
+  navigator.clipboard.writeText(link).then(() => alert('✅ تم نسخ رابط الغرفة!\n' + link));
+}
+
+function closeRoom() {
+  if (confirm('هل تريد إغلاق الغرفة؟ سيُطرد جميع المشاهدين.')) {
+    socket.emit('room:close', { code: ROOM_CODE });
+    location.href = '/rooms.html';
+  }
+}
+
+// ── Utils ─────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Guess ─────────────────────────────────────────────────
+let guessAnswered = false;
+let koCorrectAnswer = 1;
+let koTimerInt = null;
+let koElimTotal = 0;
+
+const GUESS_WORDS = [
+  {w:'الرياض',h:'عاصمة المملكة العربية السعودية'},{w:'القاهرة',h:'عاصمة مصر'},{w:'دبي',h:'مدينة الأحلام الإماراتية'},
+  {w:'الأسد',h:'ملك الغابة'},{w:'الفيل',h:'أكبر حيوان بري'},{w:'الزرافة',h:'أطول حيوان في العالم'},
+  {w:'الموز',h:'فاكهة صفراء استوائية'},{w:'البطيخ',h:'فاكهة صيفية حمراء من الداخل'},{w:'التمر',h:'ثمرة النخلة'},
+  {w:'كرة القدم',h:'أشهر رياضة في العالم'},{w:'السباحة',h:'رياضة مائية'},{w:'الملاكمة',h:'رياضة القتال بالقبضات'},
+  {w:'الشلال',h:'ماء يسقط من ارتفاع'},{w:'البركان',h:'جبل يقذف الحمم'},{w:'الصحراء',h:'أرض جافة رملية'},
+  {w:'الكعبة',h:'قبلة المسلمين في مكة'},{w:'الأهرامات',h:'مقابر الفراعنة'},{w:'برج إيفل',h:'رمز فرنسا في باريس'},
+  {w:'الشاورما',h:'أشهر وجبة سريعة شرق أوسطية'},{w:'الكبسة',h:'أشهر أكلة سعودية'},{w:'الشوكولاتة',h:'حلوى من الكاكاو'},
+  {w:'القهوة',h:'مشروب من البن'},{w:'الذكاء الاصطناعي',h:'تقنية تحاكي العقل البشري'},{w:'الإنترنت',h:'شبكة المعلومات العالمية'},
+];
+
+function startGuess() {
+  const word = document.getElementById('guess-word').value.trim();
+  const hint = document.getElementById('guess-hint').value.trim();
+  if (!word) { alert('اكتب الكلمة أولاً'); return; }
+  guessAnswered = false;
+  socket.emit('room:guess-start', { code: ROOM_CODE, word, hint, wordPool: GUESS_WORDS });
+}
+
+function submitGuessAnswer() {
+  if (guessAnswered) return;
+  const answer = document.getElementById('guess-answer-input').value.trim();
+  if (!answer) return;
+  socket.emit('room:guess-answer', { code: ROOM_CODE, answer });
+  document.getElementById('guess-answer-input').value = '';
+}
+
+function renderGuessLetters(length, letters) {
+  const map = {};
+  (letters || []).forEach(({i, c}) => map[i] = c);
+  const row = document.getElementById('guess-letters-row');
+  row.innerHTML = Array.from({length}, (_, i) => {
+    const shown = map[i] !== undefined;
+    return `<div style="width:44px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:900;
+      ${shown ? 'background:rgba(37,244,238,.15);border:2px solid rgba(37,244,238,.5);color:#0891b2;' : 'background:rgba(255,255,255,.05);border:2px dashed rgba(255,255,255,.2);'}">${shown ? escHtml(map[i]) : ''}</div>`;
+  }).join('');
+}
+
+function renderGuessWinners(winners) {
+  const ranks = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+  document.getElementById('guess-winners-display').innerHTML = (winners || []).slice(0, 5).map((w, i) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:8px">
+      <span>${ranks[i]||i+1}</span>
+      <span style="flex:1;font-weight:700">${escHtml(w.name)}</span>
+    </div>`
+  ).join('');
+  if (IS_HOST) document.getElementById('guess-winners-ctrl').textContent = `الفائزون: ${(winners||[]).map(w=>w.name).join('، ')||'—'}`;
+}
+
+// ── Knockout ──────────────────────────────────────────────
+function openKnockoutReg() {
+  const keyword = document.getElementById('ko-keyword').value.trim() || 'بطولة';
+  const maxPlayers = parseInt(document.getElementById('ko-max').value) || 16;
+  socket.emit('room:knockout-register', { code: ROOM_CODE, keyword, maxPlayers });
+}
+
+function setKoCorrect(n) {
+  koCorrectAnswer = n;
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById(`ko-c${i}`);
+    if (el) el.textContent = i === n ? '🟢' : '⚪';
+  }
+}
+
+function askKnockout() {
+  const q = document.getElementById('ko-q').value.trim();
+  const options = [1,2,3,4].map(i => document.getElementById(`ko-o${i}`)?.value.trim()).filter(Boolean);
+  const answerTime = parseInt(document.getElementById('ko-time').value) || 15;
+  if (!q || options.length < 2) { alert('اكتب السؤال وخيارين على الأقل'); return; }
+  socket.emit('room:knockout-ask', { code: ROOM_CODE, question: q, options, correct: koCorrectAnswer, answerTime });
+}
+
+function joinKnockout() {
+  socket.emit('room:knockout-join', { code: ROOM_CODE });
+  document.getElementById('btn-join-knockout').style.display = 'none';
+  document.getElementById('btn-join-knockout').textContent = '✅ سجّلت!';
+}
+
+function renderKoOptions(options, correct, showResult) {
+  document.getElementById('ko-options-display').innerHTML = options.map((o, i) => {
+    let style = 'display:flex;gap:8px;align-items:center;padding:10px 14px;border-radius:10px;background:var(--surface2);border:1.5px solid var(--border);cursor:pointer;transition:all .2s;';
+    if (showResult) {
+      if (i + 1 === correct) style += 'background:rgba(74,222,128,.1);border-color:var(--success);';
+      else style += 'background:rgba(248,113,113,.06);border-color:rgba(248,113,113,.2);';
+    }
+    const clickable = !showResult && !IS_HOST ? `onclick="submitKoAnswer(${i+1})"` : '';
+    return `<div style="${style}" ${clickable}>
+      <div style="width:26px;height:26px;border-radius:6px;background:rgba(124,107,255,.2);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.85rem;color:var(--accent);flex-shrink:0">${i+1}</div>
+      <span>${escHtml(o)}</span>
+    </div>`;
+  }).join('');
+}
+
+let koAnswered = false;
+function submitKoAnswer(n) {
+  if (koAnswered) return;
+  koAnswered = true;
+  socket.emit('room:knockout-answer', { code: ROOM_CODE, answer: n });
+  // Visual feedback
+  const opts = document.getElementById('ko-options-display').children;
+  if (opts[n-1]) opts[n-1].style.borderColor = 'var(--accent)';
+}
+
+init();
+</script>
+</body>
+</html>
